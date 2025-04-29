@@ -4,8 +4,11 @@ import sys
 from subprocess import CalledProcessError
 
 
+######################### Pre-run checks #######################################
 
-if __name__ == "__main__":
+# Checks if the program is being run in a virtual environment.
+# If the program is not being run in a venv, prints a help message and exits.
+def check_if_in_venv(test = False):
     if sys.prefix == sys.base_prefix:
         # Checks if the program is being run in a venv:
         # https://docs.python.org/3/library/venv.html#how-venvs-work
@@ -19,9 +22,12 @@ if __name__ == "__main__":
                     .venv\\Scripts\\Activate.bat
                 Windows (PowerShell):
                     .venv\\Scripts\\Activate.ps1""")
+        if test == True:
+            return False
         sys.exit()
-
-    # Checking if packages are up to date
+    return True
+# Checks if there are any updates available, returns true
+def check_for_updates() -> bool:
     try:
         upgradeable_packages = subprocess.check_output(
             ["pip",
@@ -30,28 +36,50 @@ if __name__ == "__main__":
             "--require-virtualenv",
             "--local"]
         )
-        # If upgradeable_packages = b'', all packages are up-to-date.
         if upgradeable_packages != b'':
-
-            # If there are packets to upgrade, upgrade them and prompt the user
-            # to restart. This way is cleaner than restarting the script
-            # programatically.
-            try:
-                subprocess.check_call(
-                    ["pip",
-                    "install",
-                    "-r",
-                    "requirements.txt",
-                    "--require-virtualenv",
-                    "--upgrade",
-                    "--progress-bar=raw"]
-                )
-            except CalledProcessError:
-                print("Error! Updating packages failed :(")
-            else:
-                print("Packages have been updated, please restart MyFinance")
-                sys.exit()
-
+            return True
+        return False
     except subprocess.CalledProcessError:
         print("Error! check for update failed :(")
         sys.exit()
+
+# Runs pip from the command line as a sub-process to install any modules which
+# need updating, then exits the program and prompts the user to restart it.
+# This is a cleaner and easier way of doing it than trying to restart the
+# program from within itself.
+def install_updates():
+    try:
+        subprocess.check_call(
+            ["pip",
+            "install",
+            "-r",
+            "requirements.txt",
+            "--require-virtualenv",
+            "--upgrade",
+            "--progress-bar=raw"]
+        )
+    except CalledProcessError:
+        print("Error! Updating packages failed :(")
+    else:
+        print("Packages have been updated, please restart MyFinance")
+        sys.exit()
+
+
+
+def pre_run_checks():
+    check_if_in_venv()
+
+    if check_for_updates():
+        install_updates()
+
+
+
+    # Checking if packages are up to date
+    # If upgradeable_packages = b'', all packages are up-to-date.
+
+
+
+
+# entry point
+if __name__ == "__main__":
+    pre_run_checks()
