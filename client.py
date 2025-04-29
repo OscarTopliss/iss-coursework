@@ -1,7 +1,7 @@
-from itertools import batched
 # imports
 import subprocess # used for calling pip from the command line
 import sys
+from subprocess import CalledProcessError
 
 
 
@@ -19,8 +19,39 @@ if __name__ == "__main__":
                     .venv\\Scripts\\Activate.bat
                 Windows (PowerShell):
                     .venv\\Scripts\\Activate.ps1""")
+        sys.exit()
 
+    # Checking if packages are up to date
     try:
-        subprocess.check_call("")
-    except:
-        pass
+        upgradeable_packages = subprocess.check_output(
+            ["pip",
+            "list",
+            "--outdated",
+            "--require-virtualenv",
+            "--local"]
+        )
+        # If upgradeable_packages = b'', all packages are up-to-date.
+        if upgradeable_packages != b'':
+
+            # If there are packets to upgrade, upgrade them and prompt the user
+            # to restart. This way is cleaner than restarting the script
+            # programatically.
+            try:
+                subprocess.check_call(
+                    ["pip",
+                    "install",
+                    "-r",
+                    "requirements.txt",
+                    "--require-virtualenv",
+                    "--upgrade",
+                    "--progress-bar=raw"]
+                )
+            except CalledProcessError:
+                print("Error! Updating packages failed :(")
+            else:
+                print("Packages have been updated, please restart MyFinance")
+                sys.exit()
+
+    except subprocess.CalledProcessError:
+        print("Error! check for update failed :(")
+        sys.exit()
