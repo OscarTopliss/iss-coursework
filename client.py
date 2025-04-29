@@ -26,6 +26,7 @@ def check_if_in_venv(test = False):
             return False
         sys.exit()
     return True
+
 # Checks if there are any updates available, returns true
 def check_for_updates() -> bool:
     try:

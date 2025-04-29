@@ -5,8 +5,8 @@
 # trying to call them as normal test functions.
 
 # For these functions, the name of the desired test function is passed as an
-# argument, and the program will exit with a status code of 0 for a successful
-# test, and 1 if not.
+# argument, and the program will exit with a status code of 0 and print a
+# boolean value for a successuly executed test.
 
 # I'm using a tst_*() naming convention so that pytest doesn't call these
 # functions automatically
@@ -24,6 +24,10 @@ def tst_if_in_venv():
 
 
 if __name__ == '__main__':
-    if sys.argv == ['tst_if_in_venv']:
+    if 'tst_if_in_venv' in sys.argv:
         if tst_if_in_venv():
-            sys.exit()
+            print("True")
+            sys.exit(0)
+        else:
+            print("False")
+            sys.exit(0)
