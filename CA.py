@@ -4,7 +4,7 @@
 ## imports
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import x509
 from cryptography.x509 import NameOID, Certificate
 import datetime
@@ -20,8 +20,8 @@ def generate_root_key() -> EllipticCurvePrivateKey:
 # Generate a new root certificate for the CA program.
 # This is mostly followed from the cryptography library tutorial:
 # https://cryptography.io/en/latest/x509/tutorial/#creating-a-ca-hierarchy
-def generate_root_ca() -> Certificate:
-    root_key = generate_root_key()
+def generate_root_certificate(key: EllipticCurvePrivateKey) -> Certificate:
+    root_key = key
 
     public_key = root_key.public_key()
 
@@ -82,3 +82,29 @@ def generate_root_ca() -> Certificate:
     )
 
     return root_cert
+
+    # https://cryptography.io/en/latest/x509/tutorial/#creating-a-self-signed-certificate
+def generate_and_store_root_certificate():
+    key = generate_root_key()
+
+    with open("./HSM-CA/root-key.pem", "wb") as key_file:
+        key_file.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            # In reality the passphrase shouldn't be here or in the HSM,
+            # This is for expedience.
+            encryption_algorithm=serialization.BestAvailableEncryption(
+                b"super-secure-passphrase"
+            )))
+
+    certificate = generate_root_certificate(key)
+
+    with open("./HSM-CA/root-certificate.pem", "wb") as cert_file:
+        cert_file.write(certificate.public_bytes(
+            encoding=serialization.Encoding.PEM
+        ))
+
+
+if __name__ == "__main__":
+    pass
+    # generate_and_store_root_certificate()
