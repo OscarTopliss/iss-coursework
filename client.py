@@ -78,7 +78,10 @@ def pre_run_checks():
     # Checking if packages are up to date
     # If upgradeable_packages = b'', all packages are up-to-date.
 
-
+class Client:
+    def client_loop():
+        while True:
+            input("client loop")
 
 
 # entry point

@@ -59,3 +59,9 @@ def gen_self_signed_cert():
 
     with open("./shared-certiciates", "wb") as certfile:
         certfile.write(cert.public_bytes(serialization.Encoding.PEM))
+
+
+class Server:
+    def main():
+        while True:
+            input("server main loop")
