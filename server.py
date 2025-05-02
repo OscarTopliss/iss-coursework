@@ -9,7 +9,8 @@ from cryptography import x509
 from cryptography.x509 import NameOID, Certificate
 import datetime
 # Sockets/SSL
-#import socket
+import socket
+import ssl
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -67,17 +68,28 @@ def gen_self_signed_cert():
 class Server:
     server_socket = None
 
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain('./shared-certificates/root-certificate.pem',
+        './HSM-server/root-key.pem')
+
     def start_server_socket(self, backlog: int):
+        context = self.ssl_context
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
+            sock.bind(('localhost', 1234))
+            sock.listen(5)
+            with context.wrap_socket(sock, server_side=True) as ssock:
+                conn, addr = ssock.accept()
         pass
 
     def accept_client_connection(self):
         pass
 
-    def recv_client_message(self,socket) -> bytes:
+    def recv_client_message(self,socketObj) -> bytes:
         pass
         return b''
 
 
     def main():
         while True:
-            input("server main loop")
+            (clientsocket, address) =

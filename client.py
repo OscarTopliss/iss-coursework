@@ -2,6 +2,8 @@
 import subprocess # used for calling pip from the command line
 import sys
 from subprocess import CalledProcessError
+import socket
+import ssl
 
 
 ######################### Pre-run checks #######################################
