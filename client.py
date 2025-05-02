@@ -79,6 +79,17 @@ def pre_run_checks():
     # If upgradeable_packages = b'', all packages are up-to-date.
 
 class Client:
+    def connect_to_server(self):
+        pass
+
+    def send_to_server(self, message: str):
+        pass
+
+    def recv_from_server(self) -> bytes:
+        pass
+        return b''
+
+
     def client_loop():
         while True:
             input("client loop")

@@ -2,11 +2,14 @@
 # The server program, which contains most of the functionality of the system.
 
 ## Imports
+# Cryptography
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import x509
 from cryptography.x509 import NameOID, Certificate
 import datetime
+# Sockets/SSL
+#import socket
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -62,6 +65,19 @@ def gen_self_signed_cert():
 
 
 class Server:
+    server_socket = None
+
+    def start_server_socket(self, backlog: int):
+        pass
+
+    def accept_client_connection(self):
+        pass
+
+    def recv_client_message(self,socket) -> bytes:
+        pass
+        return b''
+
+
     def main():
         while True:
             input("server main loop")
