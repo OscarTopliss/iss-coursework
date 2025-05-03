@@ -74,7 +74,10 @@ class Server:
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain('./shared-certificates/root-certificate.pem',
         './HSM-server/private-key.pem')
-    hostname = ''
+    ssl_context.load_verify_locations(
+        './shared-certificates/root-certificate.pem'
+    )
+    hostname = '127.0.0.1'
     port = 1234
 
     def __init__(self, test=False):
@@ -90,9 +93,10 @@ class Server:
             with context.wrap_socket(sock, server_side=True) as ssock:
                 print("Listener started.")
                 while True:
-                    client_socket = ssock.accept()
+                    client_socket, client_address = ssock.accept()
                     self.client_sockets.append(client_socket)
-                    print("client accepted. Index: {len(client_sockets) -1}")
+                    print(f"client accepted. Index: \
+                        {len(self.client_sockets) -1}")
         pass
 
 

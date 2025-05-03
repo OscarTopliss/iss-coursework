@@ -2,4 +2,4 @@ PyCryptoDome
 Cryptography
 pytest
 pip
-urllib3 == 1.26.18
+urllib3

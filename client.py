@@ -84,27 +84,33 @@ def pre_run_checks():
     # If upgradeable_packages = b'', all packages are up-to-date.
 
 class Client:
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context = ssl.create_default_context()
     ssl_context.load_verify_locations(
         "./shared-certificates/root-certificate.pem"
     )
+    ssl_context.check_hostname = False
     server_hostname = "127.0.0.1"
     server_port = 1324
 
     server_socket = None
 
     def connect_to_server(self):
-        try:
-            # Based on this:
-            # https://docs.python.org/3/library/ssl.html#socket-creation
-            context = self.ssl_context
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
-                with context.wrap_socket(sock,
-                    server_hostname=self.server_hostname) as ssock:
-                        self.server_socket = ssock
-        except ConnectionRefusedError as error:
-            print("\nError: Connection Failed.\n")
-            print(error)
+        # try:
+        # Based on this:
+        # https://docs.python.org/3/library/ssl.html#socket-creation
+        context = self.ssl_context
+        with socket.create_connection(
+            ("localhost", 1234)
+        ) as sock:
+            with context.wrap_socket(
+                sock
+            ) as ssock:
+                print(ssock.version())
+        # except ConnectionRefusedError as error:
+        #     print("\nError: Connection Failed.\n")
+        #     print(error)
+        # else:
+        #     print("Connected.")
 
 
 
@@ -141,6 +147,6 @@ class Client:
 
 # entry point
 if __name__ == "__main__":
-    pre_run_checks()
+    #pre_run_checks()
     client = Client()
     client.start_client_loop()
