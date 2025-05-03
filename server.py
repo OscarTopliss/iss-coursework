@@ -74,6 +74,8 @@ class Server:
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain('./shared-certificates/root-certificate.pem',
         './HSM-server/private-key.pem')
+    hostname = ''
+    port = 1234
 
     def __init__(self, test=False):
         self.test = test
@@ -83,9 +85,10 @@ class Server:
         context = self.ssl_context
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
-            sock.bind(('localhost', 1234))
+            sock.bind((self.hostname, self.port))
             sock.listen(backlog)
             with context.wrap_socket(sock, server_side=True) as ssock:
+                print("Listener started.")
                 while True:
                     client_socket = ssock.accept()
                     self.client_sockets.append(client_socket)

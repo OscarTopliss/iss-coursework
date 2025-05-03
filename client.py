@@ -32,6 +32,7 @@ def check_if_in_venv(test = False):
 
 # Checks if there are any updates available, returns true
 def check_for_updates() -> bool:
+    print("Checking for updates...")
     try:
         upgradeable_packages = subprocess.check_output(
             ["pip",
@@ -42,6 +43,7 @@ def check_for_updates() -> bool:
         )
         if upgradeable_packages != b'':
             return True
+        print("System up-to-date.")
         return False
     except subprocess.CalledProcessError:
         print("Error! check for update failed :(")
@@ -82,22 +84,27 @@ def pre_run_checks():
     # If upgradeable_packages = b'', all packages are up-to-date.
 
 class Client:
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations(
         "./shared-certificates/root-certificate.pem"
     )
-    server_hostname = "localhost"
+    server_hostname = "127.0.0.1"
     server_port = 1324
 
     server_socket = None
 
     def connect_to_server(self):
-        with socket.create_connection(
-            (self.server_hostname, self.server_port)
-        ) as sock:
-            ssock = self.ssl_context.wrap_socket(sock,
-                server_hostname=self.server_hostname)
-            self.server_socket = ssock
+        try:
+            # Based on this:
+            # https://docs.python.org/3/library/ssl.html#socket-creation
+            context = self.ssl_context
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
+                with context.wrap_socket(sock,
+                    server_hostname=self.server_hostname) as ssock:
+                        self.server_socket = ssock
+        except ConnectionRefusedError as error:
+            print("\nError: Connection Failed.\n")
+            print(error)
 
 
 
@@ -109,21 +116,24 @@ class Client:
         return b''
 
     def start_menu(self):
-        option = input("""
-            MyFinance Inc.
-            1. Connect to MyFinance
-            2. Quit""")
+        option = input(
+"""MyFinance Inc.
+1. Connect to MyFinance
+2. Quit
+>""")
         if option == "1":
             print("connecting...")
+            self.connect_to_server()
             return
         if option == "2":
             print("Quitting...")
+            sys.exit()
             return
-        print(f"Invalid option: {option}")
+        print(f"\nInvalid option: {option}\n")
 
 
 
-    def start_client(self):
+    def start_client_loop(self):
         while True:
             self.start_menu()
 
@@ -133,3 +143,4 @@ class Client:
 if __name__ == "__main__":
     pre_run_checks()
     client = Client()
+    client.start_client_loop()
