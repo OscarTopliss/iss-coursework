@@ -1,3 +1,4 @@
+import server
 # imports
 import subprocess # used for calling pip from the command line
 import sys
@@ -81,8 +82,24 @@ def pre_run_checks():
     # If upgradeable_packages = b'', all packages are up-to-date.
 
 class Client:
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_verify_locations(
+        "./shared-certificates/root-certificate.pem"
+    )
+    server_hostname = "localhost"
+    server_port = 1324
+
+    server_socket = None
+
     def connect_to_server(self):
-        pass
+        with socket.create_connection(
+            (self.server_hostname, self.server_port)
+        ) as sock:
+            ssock = self.ssl_context.wrap_socket(sock,
+                server_hostname=self.server_hostname)
+            self.server_socket = ssock
+
+
 
     def send_to_server(self, message: str):
         pass
@@ -91,12 +108,28 @@ class Client:
         pass
         return b''
 
+    def start_menu(self):
+        option = input("""
+            MyFinance Inc.
+            1. Connect to MyFinance
+            2. Quit""")
+        if option == "1":
+            print("connecting...")
+            return
+        if option == "2":
+            print("Quitting...")
+            return
+        print(f"Invalid option: {option}")
 
-    def client_loop():
+
+
+    def start_client(self):
         while True:
-            input("client loop")
+            self.start_menu()
+
 
 
 # entry point
 if __name__ == "__main__":
     pre_run_checks()
+    client = Client()

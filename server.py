@@ -71,12 +71,13 @@ class Server:
     test_client = None
     client_sockets = []
 
-    def __init__(self, test=False):
-        self.test = test
-
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain('./shared-certificates/root-certificate.pem',
         './HSM-server/private-key.pem')
+
+    def __init__(self, test=False):
+        self.test = test
+
 
     def start_server_loop(self, backlog: int):
         context = self.ssl_context
@@ -88,6 +89,7 @@ class Server:
                 while True:
                     client_socket = ssock.accept()
                     self.client_sockets.append(client_socket)
+                    print("client accepted. Index: {len(client_sockets) -1}")
         pass
 
 
