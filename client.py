@@ -95,22 +95,21 @@ class Client:
     server_socket = None
 
     def connect_to_server(self):
-        # try:
+        try:
         # Based on this:
         # https://docs.python.org/3/library/ssl.html#socket-creation
-        context = self.ssl_context
-        with socket.create_connection(
-            ("localhost", 1234)
-        ) as sock:
-            with context.wrap_socket(
-                sock
-            ) as ssock:
-                print(ssock.version())
-        # except ConnectionRefusedError as error:
-        #     print("\nError: Connection Failed.\n")
-        #     print(error)
-        # else:
-        #     print("Connected.")
+            context = self.ssl_context
+            with socket.create_connection(
+                ("localhost", 1234)
+            ) as sock:
+                ssock = context.wrap_socket(
+                    sock
+                )
+                self.server_socket = ssock
+        except ConnectionRefusedError as error:
+            print("\nError: Connection Failed.\n")
+        else:
+            print("Connected.")
 
 
 
@@ -147,6 +146,6 @@ class Client:
 
 # entry point
 if __name__ == "__main__":
-    #pre_run_checks()
+    pre_run_checks()
     client = Client()
     client.start_client_loop()
