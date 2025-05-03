@@ -11,6 +11,7 @@ import datetime
 # Sockets/SSL
 import socket
 import ssl
+from os import getcwd
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -25,8 +26,7 @@ def gen_self_signed_cert():
         keyfile.write(key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.\
-            BestAvailableEncryption(b"super-secure-passphrase"),
+            encryption_algorithm=serialization.NoEncryption()
         ))
 
     subject = issuer = x509.Name([
@@ -59,37 +59,46 @@ def gen_self_signed_cert():
     ).add_extension(
         x509.SubjectAlternativeName([x509.DNSName("localhost")]),
         critical=False
-    ).sign(key, hashes.SHA512())
+    ).sign(key, hashes.SHA256())
 
-    with open("./shared-certiciates", "wb") as certfile:
+    with open("./shared-certificates/root-certificate.pem", "wb") as certfile:
         certfile.write(cert.public_bytes(serialization.Encoding.PEM))
 
 
 class Server:
     server_socket = None
+    test = False
+    test_client = None
+    client_sockets = []
+
+    def __init__(self, test=False):
+        self.test = test
 
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain('./shared-certificates/root-certificate.pem',
-        './HSM-server/root-key.pem')
+        './HSM-server/private-key.pem')
 
-    def start_server_socket(self, backlog: int):
+    def start_server_loop(self, backlog: int):
         context = self.ssl_context
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
             sock.bind(('localhost', 1234))
-            sock.listen(5)
+            sock.listen(backlog)
             with context.wrap_socket(sock, server_side=True) as ssock:
-                conn, addr = ssock.accept()
+                while True:
+                    client_socket = ssock.accept()
+                    self.client_sockets.append(client_socket)
         pass
 
-    def accept_client_connection(self):
+
+    def recv_client_message(self,socket_index) -> bytes:
+        socket = self.client_sockets[socket_index]
+        message = socket.recv()
         pass
-
-    def recv_client_message(self,socketObj) -> bytes:
-        pass
-        return b''
+        return message
 
 
-    def main():
-        while True:
-            (clientsocket, address) =
+if __name__ == "__main__":
+    # gen_self_signed_cert()
+    server = Server()
+    server.start_server_loop(5)

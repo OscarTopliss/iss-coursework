@@ -15,12 +15,12 @@ class TestSockets:
         server = Server()
         client = Client()
 
-        server.start_server_socket(5)
+        server.start_server_loop(5)
 
         client.connect_to_server()
 
         client.send_to_server("Hello World!")
 
-        message = server.recv_client_message(None)
+        message = server.recv_client_message(0)
 
         assert message == b'Hello World!'
