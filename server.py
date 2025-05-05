@@ -1,3 +1,5 @@
+from idlelib.run import get_message_lines
+from operator import not_
 ######################### SERVER PROGRAM #######################################
 # The server program, which contains most of the functionality of the system.
 
@@ -72,12 +74,26 @@ def gen_self_signed_cert():
 # Each instance is repsponsible for closing its given clientSocket object, and
 # for returning so that the controlling thread/process can be freed.
 class ClientSession:
-    username = None
-    userType = None
-    sessionActive = False
+    # Enum which contains the "point" the client is at. E.g. the login menu,
+    # financial transaction menu etc.
+    class SessionState(Enum):
+        START_MENU = 1
+
+    # Enum which contains the possible user types, including unauthenticated.
+    class UserType(Enum):
+        NOT_AUTHENTICATED = 0
+        CLIENT = 1
+        FINANCIAL_ADVISOR = 2
+        SYSTEM_ADMINISTRATOR = 3
+
+    sessionPoint = SessionPoint.START_MENU
+
     def __init__(self, clientSocket: socket.socket):
-        self.clientSocket = clientSocket
-        self.clientSocket.setblocking(False)
+        self.username = None
+        self.user_type = self.UserType.NOT_AUTHENTICATED
+        self.session_state =
+        self.client_socket = clientSocket
+        self.client_socket.setblocking(False)
         self.sessionActive = True
 
     # Enum to define message codes, used in the recv_message() function.
@@ -104,10 +120,19 @@ class ClientSession:
             except:
                 return (message, self.MessageCode.ERROR)
 
+    # Finds the message to send to the client program based on the status of
+    # self.sessionState, which references the SessionState enum.
+    def get_message_to_send(self) -> bytes:
+        if self.session_state == self.SessionState.START_MENU:
+            return b'''\
+Welcome to MyFinance.\
+'''
+
     # Loop which handles a session until it terminates. Returns 0 if the
-    # session ended as espected, 1 if an error occured.
+    # session ended as espected, 1 if an error occured
     def sessionHandlerLoop(self) -> int:
         while True:
+            message_to_send = self.get_message_to_send()
             message, connectionStatus = self.recv_message()
 
     # This is the method which will be used by the handling thread/process. It
