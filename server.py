@@ -1,5 +1,3 @@
-from idlelib.run import get_message_lines
-from operator import not_
 ######################### SERVER PROGRAM #######################################
 # The server program, which contains most of the functionality of the system.
 
@@ -14,7 +12,6 @@ import datetime
 # Sockets/SSL
 import socket
 import ssl
-from tkinter.filedialog import Open
 from enum import Enum
 
 ##### PKI
@@ -86,9 +83,8 @@ class ClientSession:
         FINANCIAL_ADVISOR = 2
         SYSTEM_ADMINISTRATOR = 3
 
-    sessionPoint = SessionPoint.START_MENU
 
-    def __init__(self, clientSocket: socket.socket):
+    def __init__(self, clientSocket: ssl.SSLSocket):
         self.username = None
         self.user_type = self.UserType.NOT_AUTHENTICATED
         self.session_state = self.SessionState.START_MENU
@@ -108,7 +104,7 @@ class ClientSession:
         message = b''
         while True:
             try:
-                message += self.clientSocket.recv(1024)
+                message += self.client_socket.recv(1024)
             # Logic to see if there's an actual error, or if it's throwing an
             # exception because the socket is in non-blocking mode.
             except socket.error as error:
@@ -127,19 +123,22 @@ class ClientSession:
             return b'''\
 Welcome to MyFinance.\
 '''
+        return b''
 
     # Loop which handles a session until it terminates. Returns 0 if the
     # session ended as espected, 1 if an error occured
     def sessionHandlerLoop(self) -> int:
+        self.recv_message() # initially flush the buffer
         while True:
             message_to_send = self.get_message_to_send()
+            self.client_socket.send(message_to_send)
             message, connectionStatus = self.recv_message()
 
     # This is the method which will be used by the handling thread/process. It
     # abstracts away the object itself, which lets the thread/process' get freed
     # when it's associated function returns.
     @staticmethod
-    def handle_session(clientSocket: socket.socket):
+    def handle_session(clientSocket: ssl.SSLSocket):
         handler = ClientSession(clientSocket)
         handler.sessionHandlerLoop()
         return
@@ -181,6 +180,7 @@ class Server:
                     self.client_sockets.append(client_socket)
                     print(f"client accepted. Index: \
                         {len(self.client_sockets) -1}")
+                    ClientSession.handle_session(client_socket)
         pass
 
 

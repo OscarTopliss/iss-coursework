@@ -120,7 +120,7 @@ class Client:
     def client_session_loop(self):
         while True:
             message = self.recv_message()
-            print(f"{message!r}")
+            print(f"{message[0]!r}")
             response = input("> ")
             if response.lower() == "q":
                 print("Thank you for using MyFinance.")
@@ -156,7 +156,6 @@ class Client:
         pass
 
     def recv_from_server(self) -> bytes:
-        pass
         return b''
 
     def start_menu(self):
