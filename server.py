@@ -11,7 +11,6 @@ import datetime
 # Sockets/SSL
 import socket
 import ssl
-from os import getcwd
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -63,6 +62,14 @@ def gen_self_signed_cert():
 
     with open("./shared-certificates/root-certificate.pem", "wb") as certfile:
         certfile.write(cert.public_bytes(serialization.Encoding.PEM))
+
+class ClientSession:
+    clientSocket = None
+    username = None
+    userType = None
+    authenticated = False
+    def __init__(self, clientSocket):
+        self.clientSocket = clientSocket
 
 
 class Server:
