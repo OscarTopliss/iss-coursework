@@ -5,6 +5,8 @@ import sys
 from subprocess import CalledProcessError
 import socket
 import ssl
+from enum import Enum
+from errno import EWOULDBLOCK
 
 
 ######################### Pre-run checks #######################################
@@ -84,6 +86,11 @@ def pre_run_checks():
     # If upgradeable_packages = b'', all packages are up-to-date.
 
 class Client:
+    class MessageCode(Enum):
+        OPEN = 1
+        CLOSED = 2
+        ERROR = 3
+
     ssl_context = ssl.create_default_context()
     ssl_context.load_verify_locations(
         "./shared-certificates/root-certificate.pem"
@@ -92,20 +99,52 @@ class Client:
     server_hostname = "127.0.0.1"
     server_port = 1324
 
-    server_socket = None
+
+    def recv_message(self) -> tuple[bytes, MessageCode]:
+        message = b''
+        while True:
+            try:
+                message += self.server_socket.recv(1024)
+            # Logic to see if there's an actual error, or if it's throwing an
+            # exception because the socket is in non-blocking mode.
+            except socket.error as error:
+                if error.errno != EWOULDBLOCK:
+                    return (message, self.MessageCode.ERROR)
+                if message == b'':
+                    return (message, self.MessageCode.CLOSED)
+                return (message, self.MessageCode.OPEN)
+            except:
+                return (message, self.MessageCode.ERROR)
+
+
+    def client_session_loop(self):
+        while True:
+            message = self.recv_message()
+            print(f"{message!r}")
+            response = input("> ")
+            if response.lower() == "q":
+                print("Thank you for using MyFinance.")
+                self.server_socket.close()
+                sys.exit(0)
+            self.server_socket.sendall(response.encode())
+
+
+
+
 
     def connect_to_server(self):
         try:
         # Based on this:
         # https://docs.python.org/3/library/ssl.html#socket-creation
             context = self.ssl_context
-            with socket.create_connection(
+            sock = socket.create_connection(
                 ("localhost", 1234)
-            ) as sock:
-                ssock = context.wrap_socket(
-                    sock
-                )
-                self.server_socket = ssock
+            )
+            ssock = context.wrap_socket(
+                sock
+            )
+            self.server_socket = ssock
+            self.server_socket.setblocking(False)
         except ConnectionRefusedError as error:
             print("\nError: Connection Failed.\n")
         else:
@@ -129,6 +168,7 @@ class Client:
         if option == "1":
             print("connecting...")
             self.connect_to_server()
+            self.client_session_loop()
             return
         if option == "2":
             print("Quitting...")
@@ -138,7 +178,7 @@ class Client:
 
 
 
-    def start_client_loop(self):
+    def client_start_menu_loop(self):
         while True:
             self.start_menu()
 
@@ -148,4 +188,4 @@ class Client:
 if __name__ == "__main__":
     pre_run_checks()
     client = Client()
-    client.start_client_loop()
+    client.client_start_menu_loop()

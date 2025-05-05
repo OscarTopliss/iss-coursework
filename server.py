@@ -91,7 +91,7 @@ class ClientSession:
     def __init__(self, clientSocket: socket.socket):
         self.username = None
         self.user_type = self.UserType.NOT_AUTHENTICATED
-        self.session_state =
+        self.session_state = self.SessionState.START_MENU
         self.client_socket = clientSocket
         self.client_socket.setblocking(False)
         self.sessionActive = True
