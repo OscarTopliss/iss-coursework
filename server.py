@@ -70,7 +70,7 @@ def gen_self_signed_cert():
 # Class to handle client sessions.
 # Once a client socket is created, it's passed to an instance of this class.
 # Each instance is repsponsible for closing its given clientSocket object, and
-# for returning so that
+# for returning so that the controlling thread/process can be freed.
 class ClientSession:
     username = None
     userType = None
@@ -104,13 +104,20 @@ class ClientSession:
             except:
                 return (message, self.MessageCode.ERROR)
 
-
     # Loop which handles a session until it terminates. Returns 0 if the
     # session ended as espected, 1 if an error occured.
     def sessionHandlerLoop(self) -> int:
         while True:
             message, connectionStatus = self.recv_message()
 
+    # This is the method which will be used by the handling thread/process. It
+    # abstracts away the object itself, which lets the thread/process' get freed
+    # when it's associated function returns.
+    @staticmethod
+    def handle_session(clientSocket: socket.socket):
+        handler = ClientSession(clientSocket)
+        handler.sessionHandlerLoop()
+        return
 
 
 
