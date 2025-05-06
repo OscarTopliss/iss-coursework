@@ -117,8 +117,8 @@ Welcome to MyFinance.\
     def sessionHandlerLoop(self) -> int:
         while True:
             message_to_send = self.get_message_to_send()
-            self.client_socket.sendall(b"Hello, World!")
-            message, connectionStatus = self.client_socket.recv()
+            self.client_socket.sendall(message_to_send)
+            message, connectionStatus = self.client_socket.recv(1024)
             print(f"{message!r}")
 
     # This is the method which will be used by the handling thread/process. It
@@ -160,6 +160,7 @@ class Server:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
             sock.bind((self.hostname, self.port))
             sock.listen(backlog)
+
             with context.wrap_socket(sock, server_side=True) as ssock:
                 print("Listener started.")
                 while True:

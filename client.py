@@ -119,7 +119,7 @@ class Client:
 
 
 
-    def connect_to_server(self):
+    def connect_to_server(self) -> bool:
         try:
         # Based on this:
         # https://docs.python.org/3/library/ssl.html#socket-creation
@@ -133,8 +133,10 @@ class Client:
             self.server_socket = ssock
         except ConnectionRefusedError:
             print("\nError: Connection Failed.\n")
+            return False
         else:
             print("Connected.")
+            return True
 
 
 
@@ -152,8 +154,8 @@ class Client:
 >""")
         if option == "1":
             print("connecting...")
-            self.connect_to_server()
-            self.client_session_loop()
+            if self.connect_to_server():
+                self.client_session_loop()
             return
         if option == "2":
             print("Quitting...")
