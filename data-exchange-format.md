@@ -16,3 +16,6 @@ values back and fourth between the client program and the server.
 
 The JSON stuff is largely based on this tutorial:
 https://labex.io/tutorials/python-how-to-handle-data-serialization-in-python-socket-programming-398000
+
+In order to make the client-side logic as agnostic as possible, I'm only
+allowing one input per message.

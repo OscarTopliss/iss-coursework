@@ -76,6 +76,9 @@ class ClientSession:
     # financial transaction menu etc.
     class SessionState(Enum):
         START_MENU = 1
+        LOGIN_MENU_USERNAME = 2
+        LOGIN_MENU_PASSWORD = 3
+        CREATE_NEW_USER_USERNAME = 4
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -90,41 +93,112 @@ class ClientSession:
         self.user_type = self.UserType.NOT_AUTHENTICATED
         self.session_state = self.SessionState.START_MENU
         self.client_socket = clientSocket
-        self.sessionActive = True
+        # variable used to send an "Invalid response" message to users
+        self.invalid_response = False
 
     # Enum to define message codes, used in the recv_message() function.
     class MessageCode(Enum):
         OPEN = 1
         CLOSED = 2
         ERROR = 3
+
+
     # Loop which receives a full message. If it receives b'', i.e. the
     # connection is closed, returns (message, MessageCode), with messageCode
     # telling the handler whether the connection has been closed or not.
     def recv_message(self) -> tuple[bytes, MessageCode]:
         message = b''
+        valid_message = False
+        while not valid_message:
+            new_data = self.client_socket.recv(1024)
+            # If there was no data when receiving began, the connection is
+            # closed
+            if new_data == b'' and message == b'':
+                return(message, self.MessageCode.CLOSED)
+            # This shouldn't be possible unless the server closes the connection
+            # early.
+            if new_data == b'':
+                return(message, self.MessageCode.ERROR)
+
+            message += new_data
+            # Once message is a valid json object, we know we've received all
+            # the data.
+            try:
+                json.loads(message.decode())
+            except ValueError:
+                pass
+            else:
+                valid_message = True
+        return (message, self.MessageCode.OPEN)
+
+    # Handles a message and it's error code. Returns True if the the message
+    # is valid and the connection is still open, False otherwise.
+    # This lets the client program safely exit the loop when needed.
+    def handle_client_response(self,
+        message: tuple[bytes, MessageCode]) -> bool:
+        if message[1] == self.MessageCode.ERROR:
+            return False
+        if message[1] == self.MessageCode.CLOSED:
+            return False
+        message_json = json.loads(message[0].decode())
+        response = message_json["message"]
+        if self.session_state == self.SessionState.START_MENU:
+            if response == "1":
+                self.session_state = self.SessionState.LOGIN_MENU_USERNAME
+            elif response == "2":
+                self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
+            else:
+                self.invalid_response = True
+
+
+
+
+
+
+
+        print(response)
+        return True
 
 
     # Finds the message to send to the client program based on the status of
     # self.sessionState, which references the SessionState enum.
-    def get_message_to_send(self) -> bytes:
+    def get_message_to_send(self) -> str:
         if self.session_state == self.SessionState.START_MENU:
-            return b'''\
-Welcome to MyFinance.\
-1 Create Account
-2 Login
-Q Quit
-'''
-        return b''
+            return (
+                'Welcome to MyFinance.\n'
+                '1 Create Account\n'
+                '2 Login\n'
+                'Q Quit'
+                )
+        if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
+            return(
+                '## Login ##\n'
+                'Please enter username:'
+            )
+        if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
+            return(
+                '## Create new user ##\n'
+                'Please enter username for new user:'
+            )
+        return ""
 
     # Loop which handles a session until it terminates. Returns 0 if the
     # session ended as espected, 1 if an error occured
     def sessionHandlerLoop(self) -> int:
         while True:
-            message_dict = {'message':self.get_message_to_send()}
+            if self.invalid_response:
+                message_dict = {'message':"Invalid option selected."}
+            else:
+                message_dict = {'message':self.get_message_to_send()}
             message_json = json.dumps(message_dict).encode()
             self.client_socket.sendall(message_json)
-            message, connectionStatus = self.client_socket.recv(1024)
-            print(f"{message!r}")
+            (message, code) = self.recv_message()
+            if not self.handle_client_response((message,code)):
+                print("Connection failed or ended by client.")
+                self.client_socket.close()
+                break
+
+
 
     # This is the method which will be used by the handling thread/process. It
     # abstracts away the object itself, which lets the thread/process' get freed
@@ -177,11 +251,6 @@ class Server:
         pass
 
 
-    def recv_client_message(self,socket_index) -> bytes:
-        socket = self.client_sockets[socket_index]
-        message = socket.recv()
-        pass
-        return message
 
 
 if __name__ == "__main__":

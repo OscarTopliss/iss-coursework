@@ -160,7 +160,8 @@ class Client:
                 print("Thank you for using MyFinance.")
                 self.server_socket.close()
                 sys.exit(0)
-            self.server_socket.sendall(response.encode())
+            response_json = json.dumps({'message': response})
+            self.server_socket.sendall(response_json.encode())
 
 
 
