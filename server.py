@@ -102,6 +102,7 @@ class ClientSession:
     def recv_message(self) -> tuple[bytes, MessageCode]:
         message = b''
 
+
     # Finds the message to send to the client program based on the status of
     # self.sessionState, which references the SessionState enum.
     def get_message_to_send(self) -> bytes:
@@ -116,8 +117,9 @@ Welcome to MyFinance.\
     def sessionHandlerLoop(self) -> int:
         while True:
             message_to_send = self.get_message_to_send()
-            self.client_socket.send(message_to_send)
-            message, connectionStatus = self.recv_message()
+            self.client_socket.sendall(b"Hello, World!")
+            message, connectionStatus = self.client_socket.recv()
+            print(f"{message!r}")
 
     # This is the method which will be used by the handling thread/process. It
     # abstracts away the object itself, which lets the thread/process' get freed

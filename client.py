@@ -102,19 +102,6 @@ class Client:
 
     def recv_message(self) -> tuple[bytes, MessageCode]:
         message = b''
-        while True:
-            try:
-                message += self.server_socket.recv(1024)
-            # Logic to see if there's an actual error, or if it's throwing an
-            # exception because the socket is in non-blocking mode.
-            except socket.error as error:
-                if error.errno != EWOULDBLOCK:
-                    return (message, self.MessageCode.ERROR)
-                if message == b'':
-                    return (message, self.MessageCode.CLOSED)
-                return (message, self.MessageCode.OPEN)
-            except:
-                return (message, self.MessageCode.ERROR)
 
 
     def client_session_loop(self):
@@ -144,7 +131,6 @@ class Client:
                 sock
             )
             self.server_socket = ssock
-            self.server_socket.setblocking(False)
         except ConnectionRefusedError as error:
             print("\nError: Connection Failed.\n")
         else:
