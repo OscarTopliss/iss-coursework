@@ -151,11 +151,11 @@ class ClientSession:
             else:
                 self.invalid_response = True
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
-            if response == "M":
+            if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
 
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
-            if response == "M":
+            if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
 
 
@@ -194,12 +194,11 @@ class ClientSession:
             )
         return ""
 
-    # Loop which handles a session until it terminates. Returns 0 if the
-    # session ended as espected, 1 if an error occured
-    def sessionHandlerLoop(self) -> int:
+    # Loop which handles a session until it terminates.
+    def sessionHandlerLoop(self):
         while True:
             if self.invalid_response:
-                message_dict = {'message':f'Invalid option selected.\
+                message_dict = {'message':f'\nInvalid option selected.\
                     \n\n{self.get_message_to_send()}'}
             else:
                 message_dict = {'message':f'\n{self.get_message_to_send()}'}
