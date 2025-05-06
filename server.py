@@ -142,6 +142,7 @@ class ClientSession:
             return False
         message_json = json.loads(message[0].decode())
         response = message_json["message"]
+
         if self.session_state == self.SessionState.START_MENU:
             if response == "1":
                 self.session_state = self.SessionState.LOGIN_MENU_USERNAME
@@ -149,6 +150,13 @@ class ClientSession:
                 self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
             else:
                 self.invalid_response = True
+        if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
+            if response == "M":
+                self.session_state = self.SessionState.START_MENU
+
+        if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
+            if response == "M":
+                self.session_state = self.SessionState.START_MENU
 
 
 
@@ -173,12 +181,16 @@ class ClientSession:
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
             return(
                 '## Login ##\n'
-                'Please enter username:'
+                'Please enter username:\n'
+                'M Main Menu\n'
+                'Q Quit'
             )
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             return(
                 '## Create new user ##\n'
-                'Please enter username for new user:'
+                'Please enter username for new user:\n'
+                'M Main Menu\n'
+                'Q Quit'
             )
         return ""
 
