@@ -222,6 +222,6 @@ Q Quit
 
 # entry point
 if __name__ == "__main__":
-    pre_run_checks()
+    #pre_run_checks()
     client = Client()
     client.client_start_menu_loop()
