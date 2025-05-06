@@ -89,7 +89,6 @@ class ClientSession:
         self.user_type = self.UserType.NOT_AUTHENTICATED
         self.session_state = self.SessionState.START_MENU
         self.client_socket = clientSocket
-        self.client_socket.setblocking(False)
         self.sessionActive = True
 
     # Enum to define message codes, used in the recv_message() function.
@@ -102,19 +101,6 @@ class ClientSession:
     # telling the handler whether the connection has been closed or not.
     def recv_message(self) -> tuple[bytes, MessageCode]:
         message = b''
-        while True:
-            try:
-                message += self.client_socket.recv(1024)
-            # Logic to see if there's an actual error, or if it's throwing an
-            # exception because the socket is in non-blocking mode.
-            except socket.error as error:
-                if error.errno != EWOULDBLOCK:
-                    return (message, self.MessageCode.ERROR)
-                if message == b'':
-                    return (message, self.MessageCode.CLOSED)
-                return (message, self.MessageCode.OPEN)
-            except:
-                return (message, self.MessageCode.ERROR)
 
     # Finds the message to send to the client program based on the status of
     # self.sessionState, which references the SessionState enum.
@@ -128,7 +114,6 @@ Welcome to MyFinance.\
     # Loop which handles a session until it terminates. Returns 0 if the
     # session ended as espected, 1 if an error occured
     def sessionHandlerLoop(self) -> int:
-        self.recv_message() # initially flush the buffer
         while True:
             message_to_send = self.get_message_to_send()
             self.client_socket.send(message_to_send)
