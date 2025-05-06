@@ -197,16 +197,16 @@ class Client:
     def start_menu(self):
         option = input(
 """MyFinance Inc.
-1. Connect to MyFinance
-2. Quit
->""")
+1 Connect to MyFinance
+Q Quit
+> """)
         if option == "1":
             print("connecting...")
             if self.connect_to_server():
                 self.client_session_loop()
                 self.server_socket.close()
             return
-        if option == "2":
+        if option.upper() == "Q":
             print("Quitting...")
             sys.exit()
             return

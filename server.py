@@ -166,8 +166,8 @@ class ClientSession:
         if self.session_state == self.SessionState.START_MENU:
             return (
                 'Welcome to MyFinance.\n'
-                '1 Create Account\n'
-                '2 Login\n'
+                '1 Login\n'
+                '2 Create Account\n'
                 'Q Quit'
                 )
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
@@ -187,9 +187,10 @@ class ClientSession:
     def sessionHandlerLoop(self) -> int:
         while True:
             if self.invalid_response:
-                message_dict = {'message':"Invalid option selected."}
+                message_dict = {'message':f'Invalid option selected.\
+                    \n\n{self.get_message_to_send()}'}
             else:
-                message_dict = {'message':self.get_message_to_send()}
+                message_dict = {'message':f'\n{self.get_message_to_send()}'}
             message_json = json.dumps(message_dict).encode()
             self.client_socket.sendall(message_json)
             (message, code) = self.recv_message()
