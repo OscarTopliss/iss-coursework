@@ -7,6 +7,7 @@ import socket
 import ssl
 from enum import Enum
 from errno import EWOULDBLOCK
+import json
 
 
 ######################### Pre-run checks #######################################
@@ -100,14 +101,60 @@ class Client:
     server_port = 1324
 
 
+    # Messages are simple JSON objects (i.e. only string attributes, no
+    # nested objects). This means that using recv(), once the total message
+    # is a valid JSON object, you know you've received the full message and
+    # can stop using blocking recv() calls.
     def recv_message(self) -> tuple[bytes, MessageCode]:
         message = b''
+        valid_message = False
+        while not valid_message:
+            new_data = self.server_socket.recv(1024)
+            # If there was no data when receiving began, the connection is
+            # closed
+            if new_data == b'' and message == b'':
+                return(message, self.MessageCode.CLOSED)
+            # This shouldn't be possible unless the server closes the connection
+            # early.
+            if new_data == b'':
+                return(message, self.MessageCode.ERROR)
+
+            message += new_data
+            # Once message is a valid json object, we know we've received all
+            # the data.
+            try:
+                json.loads(message.decode())
+            except ValueError:
+                pass
+            else:
+                valid_message = True
+        return (message, self.MessageCode.OPEN)
+
+    # Handles a message and it's error code. Returns True if the the message
+    # is valid and the connection is still open, False otherwise.
+    # This lets the client program safely exit the loop when needed.
+    def handle_message(self, message: tuple[bytes, MessageCode]) -> bool:
+        if message[1] == self.MessageCode.ERROR:
+            print("""Error in server connection! Connection closed.
+                Thank you for using MyFinance.""")
+            return False
+        if message[1] == self.MessageCode.CLOSED:
+            print("Session Closed. Thank you for using MyFinance")
+            return False
+        message_json = json.loads(message[0].decode())
+        print(message_json["message"])
+        return True
+
+
+
 
 
     def client_session_loop(self):
         while True:
-            message = self.server_socket.recv(1024)
-            print(f"{message!r}")
+            (message, code) = self.recv_message()
+            if not self.handle_message((message, code)):
+                break
+
             response = input("> ")
             if response.lower() == "q":
                 print("Thank you for using MyFinance.")
@@ -132,7 +179,7 @@ class Client:
             )
             self.server_socket = ssock
         except ConnectionRefusedError:
-            print("\nError: Connection Failed.\n")
+            print("\nError: Connection Failed, please try again.\n")
             return False
         else:
             print("Connected.")
@@ -156,6 +203,7 @@ class Client:
             print("connecting...")
             if self.connect_to_server():
                 self.client_session_loop()
+                self.server_socket.close()
             return
         if option == "2":
             print("Quitting...")

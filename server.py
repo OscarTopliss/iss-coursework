@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import x509
 from cryptography.x509 import NameOID, Certificate
 import datetime
+import json
 # Sockets/SSL
 import socket
 import ssl
@@ -109,6 +110,9 @@ class ClientSession:
         if self.session_state == self.SessionState.START_MENU:
             return b'''\
 Welcome to MyFinance.\
+1 Create Account
+2 Login
+Q Quit
 '''
         return b''
 
@@ -116,8 +120,9 @@ Welcome to MyFinance.\
     # session ended as espected, 1 if an error occured
     def sessionHandlerLoop(self) -> int:
         while True:
-            message_to_send = self.get_message_to_send()
-            self.client_socket.sendall(message_to_send)
+            message_dict = {'message':self.get_message_to_send()}
+            message_json = json.dumps(message_dict).encode()
+            self.client_socket.sendall(message_json)
             message, connectionStatus = self.client_socket.recv(1024)
             print(f"{message!r}")
 

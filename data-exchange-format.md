@@ -13,3 +13,6 @@ JSON is also build into the Pyton standard library, is easily serialisable,
 and provides simple mechanisms for decoding a serialised JSON string into
 what's effectively a dictionary. Creates a very efficient method of passing
 values back and fourth between the client program and the server.
+
+The JSON stuff is largely based on this tutorial:
+https://labex.io/tutorials/python-how-to-handle-data-serialization-in-python-socket-programming-398000
