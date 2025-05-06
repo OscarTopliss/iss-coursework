@@ -106,8 +106,8 @@ class Client:
 
     def client_session_loop(self):
         while True:
-            message = self.recv_message()
-            print(f"{message[0]!r}")
+            message = self.server_socket.recv(1024)
+            print(f"{message!r}")
             response = input("> ")
             if response.lower() == "q":
                 print("Thank you for using MyFinance.")
@@ -131,7 +131,7 @@ class Client:
                 sock
             )
             self.server_socket = ssock
-        except ConnectionRefusedError as error:
+        except ConnectionRefusedError:
             print("\nError: Connection Failed.\n")
         else:
             print("Connected.")
