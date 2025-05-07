@@ -17,7 +17,7 @@
 # Database stuff
 import sqlalchemy as sql
 from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
 
 from typing import List
@@ -39,8 +39,37 @@ class Database():
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
-    def create_new_user(username: str, password: str):
+    def create_new_user(self, username: str, password: str):
         salt = os.urandom(16)
+        # Using the standard recommended parameters as shown here:
+        # https://datatracker.ietf.org/doc/html/rfc9106#section-4
+        # Usage based on docs:
+        # https://cryptography.io/en/latest/hazmat/primitives/key-derivation-functions/
+        kdf = Argon2id(
+            salt=salt,
+            length=32,
+            iterations=1,
+            lanes=4,
+            memory_cost=2 * 1024 * (2 ** 1024), # 2 Gib
+            ad=None,
+            secret=None,
+        )
+
+        password_bytes = kdf.derive(password.encode())
+
+        new_user = self.User(
+            username = username,
+            password = password_bytes,
+            password_salt = salt
+        )
+
+        with Session(self.engine) as session:
+            session.add(new_user)
+            session.commit()
+
+
+
+
 
 
 
@@ -51,5 +80,5 @@ class Database():
     def __init__(self):
         # Using an in-memory database as it's much easier to test with. If
         # I were writing this as a professional project, I'd use PostgreSQL.
-        engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
-        self.Base.metadata.create_all(engine)
+        self.engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
+        self.Base.metadata.create_all(self.engine)
