@@ -14,6 +14,9 @@ import json
 import socket
 import ssl
 from enum import Enum
+from asyncio.events import Handle
+from multiprocessing import Process
+from time import sleep
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -71,6 +74,7 @@ def gen_self_signed_cert():
 
     with open("./shared-certificates/root-certificate.pem", "wb") as certfile:
         certfile.write(cert.public_bytes(serialization.Encoding.PEM))
+
 
 
 # Class to handle client sessions.
@@ -222,10 +226,12 @@ class ClientSession:
     # abstracts away the object itself, which lets the thread/process' get freed
     # when it's associated function returns.
     @staticmethod
-    def handle_session(clientSocket: ssl.SSLSocket):
-        handler = ClientSession(clientSocket)
-        handler.sessionHandlerLoop()
-        return
+    def handle_sessions(serverSocket: ssl.SSLSocket):
+        while True:
+            clientSocket = serverSocket.accept()
+            handler = ClientSession(clientSocket[0])
+            print(f"client connected, address = {clientSocket[1]}")
+            handler.sessionHandlerLoop()
 
 
 
@@ -260,12 +266,27 @@ class Server:
 
             with context.wrap_socket(sock, server_side=True) as ssock:
                 print("Listener started.")
+                # This multiprocessing setup is based on this:
+                # https://stackoverflow.com/a/8545724
+                process_num = 5
+
+                worker_pool = [
+                    Process(
+                        target = ClientSession.handle_sessions,
+                        args = (ssock,)
+                    )
+                    for x in range(process_num)
+                ]
+
+
+                for worker in worker_pool:
+                    worker.daemon = True
+                    worker.start()
+
                 while True:
-                    client_socket, client_address = ssock.accept()
-                    self.client_sockets.append(client_socket)
-                    print(f"client accepted. Index: \
-                        {len(self.client_sockets) -1}")
-                    ClientSession.handle_session(client_socket)
+                    sleep(10)
+
+
         pass
 
 
@@ -274,4 +295,4 @@ class Server:
 if __name__ == "__main__":
     # gen_self_signed_cert()
     server = Server()
-    server.start_server_loop(5)
+    server.start_server_loop(10)
