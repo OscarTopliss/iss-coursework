@@ -13,9 +13,14 @@ import json
 # Sockets/SSL
 import socket
 import ssl
-from enum import Enum
-from asyncio.events import Handle
+# Multiprocessing
 from multiprocessing import Process
+# Database
+import sqlalchemy as sql
+from typing import List
+from typing import Optional
+# Misc
+from enum import Enum
 from time import sleep
 
 ##### PKI
@@ -234,6 +239,12 @@ class ClientSession:
             handler.sessionHandlerLoop()
 
 
+class Database():
+    def __init__():
+        # Using an in-memory database as it's much easier to test with. If
+        # I were writing this as a professional project, I'd use PostgreSQL.
+        engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
+
 
 
 
@@ -270,7 +281,7 @@ class Server:
                 # https://stackoverflow.com/a/8545724
                 process_num = 5
 
-                worker_pool = [
+                socket_worker_pool = [
                     Process(
                         target = ClientSession.handle_sessions,
                         args = (ssock,)
@@ -279,7 +290,7 @@ class Server:
                 ]
 
 
-                for worker in worker_pool:
+                for worker in socket_worker_pool:
                     worker.daemon = True
                     worker.start()
 
