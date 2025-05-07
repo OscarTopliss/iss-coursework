@@ -111,6 +111,7 @@ class ClientSession:
     class ErrorMessage(Enum):
         VALID_INPUT = 0
         NEW_USER_NAME_TOO_LONG = 1
+        NEW_USER_NAME_INVALID_CHARS = 2
         pass
 
 
@@ -177,8 +178,11 @@ class ClientSession:
             if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
             if len(response) >= 60:
-                self.error_code = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
+                self.error_message = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
                 return True
+            if not response.isalnum():
+                self.error_message = self.ErrorMessage.\
+                    NEW_USER_NAME_INVALID_CHARS
 
 
 
@@ -216,20 +220,29 @@ class ClientSession:
             )
         return ""
 
+    def reset_error(self, message: str) -> str:
+        self.error_message = self.ErrorMessage.VALID_INPUT
+        return message
+
     def get_error_message(self) -> str:
         if self.error_message == self.ErrorMessage.NEW_USER_NAME_TOO_LONG:
-            return(
+            return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Given username is too long.\n'
                 'Please enter a username under 60 characters.'
             )
-        return ''
+        if self.error_message == self.ErrorMessage.NEW_USER_NAME_INVALID_CHARS:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Username must only contain letters and numbers.\n'
+            )
+        return '#! Invalid Input !#'
 
     # Loop which handles a session until it terminates.
     def sessionHandlerLoop(self):
         while True:
             if self.error_message != self.ErrorMessage.VALID_INPUT:
-                message_dict = {'message':f'\n\n{self.get_error_message()}\
+                message_dict = {'message':f'\n{self.get_error_message()}\
                     \n\n{self.get_message_to_send()}'}
             else:
                 message_dict = {'message':f'\n{self.get_message_to_send()}'}
