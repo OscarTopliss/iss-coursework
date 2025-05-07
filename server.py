@@ -35,8 +35,14 @@ def gen_self_signed_cert():
             x509.NameAttribute(NameOID.COUNTRY_NAME, "UK"),
             x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "West Midlands"),
             x509.NameAttribute(NameOID.LOCALITY_NAME, "Coventry"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Definitely Real CA Inc."),
-            x509.NameAttribute(NameOID.COMMON_NAME, "Definitely Real CA Inc. Root CA"),
+            x509.NameAttribute(
+                NameOID.ORGANIZATION_NAME,
+                "Definitely Real CA Inc."
+            ),
+            x509.NameAttribute(
+                NameOID.COMMON_NAME,
+                "Definitely Real CA Inc. Root CA"
+            ),
         ])
 
     serial_number = x509.random_serial_number()
