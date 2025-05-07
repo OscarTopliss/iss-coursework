@@ -15,6 +15,8 @@ import socket
 import ssl
 # Multiprocessing
 from multiprocessing import Process
+# Database
+from server_database import Database
 # Misc
 from enum import Enum
 from time import sleep
@@ -285,6 +287,7 @@ class Server:
                     worker.daemon = True
                     worker.start()
 
+                database = Database()
                 while True:
                     sleep(10)
 
