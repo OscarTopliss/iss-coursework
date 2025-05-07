@@ -16,10 +16,12 @@ import ssl
 # Multiprocessing
 from multiprocessing import Process
 # Database
+from posix import urandom
 from server_database import Database
 # Misc
 from enum import Enum
 from time import sleep
+import os
 
 ##### PKI
 # Generates a new X.509 self-signed certificate, which will be used for TLS
@@ -78,7 +80,12 @@ def gen_self_signed_cert():
     with open("./shared-certificates/root-certificate.pem", "wb") as certfile:
         certfile.write(cert.public_bytes(serialization.Encoding.PEM))
 
-
+def write_secret_to_hsm(key: str, value: str):
+    with open("./HSM-server/secrets.json", "r") as secrets_file:
+        secrets = json.load(secrets_file)
+        secrets[key] = value
+        with open("./HSM-server/secrets.json", "w+") as new_secrets_file:
+            json.dump(secrets, new_secrets_file)
 
 # Class to handle client sessions.
 # Once a client socket is created, it's passed to an instance of this class.
@@ -261,6 +268,13 @@ class Server:
         self.test = test
 
 
+    def load_binary_secret_from_HSM(self, secret_name: str):
+        with open("./HSM-server/secrets.json") as secrets_file:
+            secrets = json.load(secrets_file)
+            return bytes.fromhex(secrets[secret_name])
+
+
+
     def start_server_loop(self, backlog: int):
         context = self.ssl_context
 
@@ -298,6 +312,7 @@ class Server:
 
 
 if __name__ == "__main__":
+    # write_secret_to_hsm("pepper", str(os.urandom(16).hex()))
     # gen_self_signed_cert()
     server = Server()
     server.start_server_loop(10)

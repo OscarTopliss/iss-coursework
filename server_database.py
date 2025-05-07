@@ -39,7 +39,7 @@ class Database():
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
-    def create_new_user(self, username: str, password: str):
+    def create_new_user(self, username: str, password: str, pepper: bytes):
         salt = os.urandom(16)
         # Using the standard recommended parameters as shown here:
         # https://datatracker.ietf.org/doc/html/rfc9106#section-4
@@ -52,7 +52,7 @@ class Database():
             lanes=4,
             memory_cost=2 * 1024 * (2 ** 1024), # 2 Gib
             ad=None,
-            secret=None,
+            secret=pepper,
         )
 
         password_bytes = kdf.derive(password.encode())
