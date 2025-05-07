@@ -15,10 +15,6 @@ import socket
 import ssl
 # Multiprocessing
 from multiprocessing import Process
-# Database
-import sqlalchemy as sql
-from typing import List
-from typing import Optional
 # Misc
 from enum import Enum
 from time import sleep
@@ -239,11 +235,6 @@ class ClientSession:
             handler.sessionHandlerLoop()
 
 
-class Database():
-    def __init__():
-        # Using an in-memory database as it's much easier to test with. If
-        # I were writing this as a professional project, I'd use PostgreSQL.
-        engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
 
 
 

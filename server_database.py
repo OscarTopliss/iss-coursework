@@ -27,3 +27,10 @@ class Database():
         username: Mapped[str] = mapped_column(String(60))
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+    def __init__(self):
+        # Using an in-memory database as it's much easier to test with. If
+        # I were writing this as a professional project, I'd use PostgreSQL.
+        engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
+        self.Base.metadata.create_all(engine)
