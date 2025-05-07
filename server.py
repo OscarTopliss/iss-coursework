@@ -107,14 +107,13 @@ class ClientSession:
         FINANCIAL_ADVISOR = 2
         SYSTEM_ADMINISTRATOR = 3
 
+    # In cases where the user is
+    class ErrorMessage(Enum):
+        VALID_INPUT = 0
+        NEW_USER_NAME_TOO_LONG = 1
+        pass
 
-    def __init__(self, clientSocket: ssl.SSLSocket):
-        self.username = None
-        self.user_type = self.UserType.NOT_AUTHENTICATED
-        self.session_state = self.SessionState.START_MENU
-        self.client_socket = clientSocket
-        # variable used to send an "Invalid response" message to users
-        self.invalid_response = False
+
 
     # Enum to define message codes, used in the recv_message() function.
     class MessageCode(Enum):
@@ -177,6 +176,9 @@ class ClientSession:
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
+            if len(response) >= 60:
+                self.error_code = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
+                return True
 
 
 
@@ -214,11 +216,20 @@ class ClientSession:
             )
         return ""
 
+    def get_error_message(self) -> str:
+        if self.error_message == self.ErrorMessage.NEW_USER_NAME_TOO_LONG:
+            return(
+                '#! Invalid Input !#\n'
+                'Given username is too long.\n'
+                'Please enter a username under 60 characters.'
+            )
+        return ''
+
     # Loop which handles a session until it terminates.
     def sessionHandlerLoop(self):
         while True:
-            if self.invalid_response:
-                message_dict = {'message':f'\nInvalid option selected.\
+            if self.error_message != self.ErrorMessage.VALID_INPUT:
+                message_dict = {'message':f'\n\n{self.get_error_message()}\
                     \n\n{self.get_message_to_send()}'}
             else:
                 message_dict = {'message':f'\n{self.get_message_to_send()}'}
@@ -242,6 +253,14 @@ class ClientSession:
             handler = ClientSession(clientSocket[0])
             print(f"client connected, address = {clientSocket[1]}")
             handler.sessionHandlerLoop()
+
+    def __init__(self, clientSocket: ssl.SSLSocket):
+        self.username = None
+        self.user_type = self.UserType.NOT_AUTHENTICATED
+        self.session_state = self.SessionState.START_MENU
+        self.error_message = self.ErrorMessage.VALID_INPUT
+        self.client_socket = clientSocket
+        # variable used to send an "Invalid response" message to users
 
 
 
