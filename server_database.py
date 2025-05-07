@@ -22,9 +22,17 @@ from sqlalchemy.sql.sqltypes import LargeBinary
 
 from typing import List
 from typing import Optional
+# Multiprocessing stuff
+from multiprocessing.connection import Connection
 # Cryptography stuff
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
 import os
+## misc
+from enum import Enum
+from uuid import uuid4 as uuid
+
+
+
 
 
 class Database():
@@ -35,7 +43,7 @@ class Database():
         __tablename__ = "users"
 
         id: Mapped[int] = mapped_column(primary_key = True)
-        username: Mapped[str] = mapped_column(String(60))
+        username: Mapped[str] = mapped_column(String(60), unique=True)
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
@@ -67,6 +75,26 @@ class Database():
             session.add(new_user)
             session.commit()
 
+
+    ## Database Request and response classes
+    # used to communicate asynchronously with the database process.
+    # Database requests are named in the format DBRRequestName.
+
+    # It's the responsibility of the database process to check if a request is
+    # valid (i.e., not creating a new user with the same username as another)
+
+    # It's the responsibilty of the **socket** process to send valid data, i.e.
+    # the correct data type, as taken from the user.
+
+    # The base class, accepts
+    class DatabaseRequest():
+        def __init__(self, process_conn: Connection):
+            self.conn = process_conn
+
+
+    class DBRUserExists(DatabaseRequest):
+        def __init__(self, process_conn: Connection, username: str):
+            with Session(self.engine) as session:
 
 
 
