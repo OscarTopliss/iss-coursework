@@ -117,12 +117,19 @@ class Database():
         if self.check_if_user_exists(username) == False:
             return False
         with Session(self.engine) as session:
-            user_list = session.execute(Select(self.User)\
+            user_list = session.execute(Select(
+                self.User.password,
+                self.User.password_salt
+            )\
                 .where(self.User.username.in_([username])))
-            user = user_list.one()
+            user = user_list.all()
 
-            salt = user.salt
-            password_hash = user.password
+
+            password_hash = user[0][0]
+            salt = user[0][1]
+
+
+
             pepper = server_HSM.get_pepper()
 
             kdf = Argon2id(

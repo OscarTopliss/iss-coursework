@@ -219,6 +219,7 @@ class ClientSession:
                 username = self.request_args["username"],
                 password = self.request_args["password"]
             )
+            self.database_queue.put(request)
             request_response = socket_conn.recv()
 
             if request_response == RequestResponse.\
@@ -359,13 +360,13 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
-            if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
-                return(
-                    '## Login ##\n'
-                    'Please enter password:\n'
-                    'M Main Menu\n'
-                    'Q Quit'
-                )
+        if self.session_state == self.SessionState.LOGIN_MENU_PASSWORD:
+            return(
+                '## Login ##\n'
+                'Please enter password:\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             return(
                 '## Create new user ##\n'
