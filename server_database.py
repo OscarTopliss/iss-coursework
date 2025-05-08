@@ -100,9 +100,11 @@ class Database():
 
     def check_if_user_exists(self, username: str):
         with Session(self.engine) as session:
-            users = Select(self.User)\
-            .where(self.User.username.in_([username]))
-            if len(session.scalars(users).all()) >= 1:
+            users = session.execute(Select(self.User)\
+                .where(self.User.username.in_([username])))
+
+            print(f"users.all(): {users.all()}")
+            if len(users.all()) >= 1:
                 return True
             return False
 
@@ -154,7 +156,7 @@ class Database():
                 self.password = password
 
     def handle_DBRCreateNewUser(self, request: DBRCreateNewUser):
-        if self.check_if_user_exists(request.username) == False:
+        if self.check_if_user_exists(request.username) == True:
             request.conn.send(RequestResponse.CREATE_USER_USER_EXISTS)
             request.conn.close()
             return
