@@ -19,12 +19,13 @@ import sqlalchemy as sql
 from sqlalchemy import String, Select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
-from sqlalchemy import Enum as sqlEnum
+from sqlalchemy import Enum as SQLEnum
 
 from typing import List
 from typing import Optional
 # Multiprocessing stuff
 from multiprocessing.connection import Connection
+from multiprocessing import Queue
 # Cryptography stuff
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
 # HSM stuff
@@ -60,7 +61,7 @@ class Database():
 
         id: Mapped[int] = mapped_column(primary_key = True)
         username: Mapped[str] = mapped_column(String(60), unique=True)
-        user_type: Mapped[UserType] = mapped_column(sqlEnum)
+        user_type: Mapped[UserType] = mapped_column(SQLEnum)
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
@@ -168,13 +169,28 @@ class Database():
 
 
 
+    def handle_request(self, request: DatabaseRequest):
+        if isinstance(request, self.DBRDoesUserExist):
+            self.handle_DBRDoesUserExist(request)
+            return
+        if isinstance(request, self.DBRCreateNewUser):
+            self.handle_DBRCreateNewUser(request)
+            return
 
 
 
+    @staticmethod
+    def start_database(queue: Queue):
+        database = Database(queue)
+        while True:
+            request = queue.get()
+            database.handle_request(request)
 
 
-    def __init__(self):
+
+    def __init__(self, queue: Queue):
         # Using an in-memory database as it's much easier to test with. If
         # I were writing this as a professional project, I'd use PostgreSQL.
         self.engine = sql.create_engine("sqlite+pysqlite:///:memory:", echo=True)
         self.Base.metadata.create_all(self.engine)
+        self.queue = queue

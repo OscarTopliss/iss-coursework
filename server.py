@@ -14,10 +14,12 @@ import json
 import socket
 import ssl
 # Multiprocessing
-from multiprocessing import Process
+from multiprocessing import Process, Queue, Pipe
 # Database
 from posix import urandom
-from server_database import Database
+from server_database import Database, RequestResponse
+from server_database import UserType as DBUserType
+import server_database
 # Misc
 from enum import Enum
 from time import sleep
@@ -99,6 +101,7 @@ class ClientSession:
         LOGIN_MENU_USERNAME = 2
         LOGIN_MENU_PASSWORD = 3
         CREATE_NEW_USER_USERNAME = 4
+        CREATE_NEW_USER_PASSWORD = 5
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -110,8 +113,10 @@ class ClientSession:
     # In cases where the user is
     class ErrorMessage(Enum):
         VALID_INPUT = 0
-        NEW_USER_NAME_TOO_LONG = 1
-        NEW_USER_NAME_INVALID_CHARS = 2
+        INVALID_INPUT_GENERIC = 1
+        NEW_USER_NAME_TOO_LONG = 2
+        NEW_USER_NAME_INVALID_CHARS = 3
+        NEW_USER_ALREADY_EXISTS = 4
         pass
 
 
@@ -169,7 +174,8 @@ class ClientSession:
             elif response == "2":
                 self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
             else:
-                self.invalid_response = True
+                self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
             if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
@@ -177,19 +183,30 @@ class ClientSession:
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             if response.upper() == "M":
                 self.session_state = self.SessionState.START_MENU
+                return True
             if len(response) >= 60:
                 self.error_message = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
                 return True
             if not response.isalnum():
                 self.error_message = self.ErrorMessage.\
                     NEW_USER_NAME_INVALID_CHARS
+                return True
+            socket_conn, db_conn = Pipe()
+            request = server_database.Database.DBRDoesUserExist(
+                process_conn = db_conn,
+                username = response
+            )
+            request_result = socket_conn.recv()
+            if request_result == RequestResponse.USER_EXISTS:
+                self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
+                return True
+            if request_result == RequestResponse.USER_DOESNT_EXIST:
+                self.session_state = self.SessionState.CREATE_NEW_USER_PASSWORD
+                return True
 
+        if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD:
+            pass
 
-
-
-
-
-        print(response)
         return True
 
 
@@ -235,7 +252,12 @@ class ClientSession:
                 '#! Invalid Input !#\n'
                 'Username must only contain letters and numbers.\n'
             )
-        return '#! Invalid Input !#'
+        if self.error_message == self.ErrorMessage.NEW_USER_ALREADY_EXISTS:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'That username is taken. Please select another.'
+            )
+        return self.reset_error('#! Invalid Input !#')
 
     # Loop which handles a session until it terminates.
     def sessionHandlerLoop(self):
@@ -259,19 +281,23 @@ class ClientSession:
     # abstracts away the object itself, which lets the thread/process' get freed
     # when it's associated function returns.
     @staticmethod
-    def handle_sessions(serverSocket: ssl.SSLSocket):
+    def handle_sessions(serverSocket: ssl.SSLSocket, queue: Queue):
         while True:
             clientSocket = serverSocket.accept()
-            handler = ClientSession(clientSocket[0])
+            handler = ClientSession(clientSocket[0], queue)
             print(f"client connected, address = {clientSocket[1]}")
             handler.sessionHandlerLoop()
 
-    def __init__(self, clientSocket: ssl.SSLSocket):
+    def __init__(self, clientSocket: ssl.SSLSocket, queue: Queue):
         self.username = None
         self.user_type = self.UserType.NOT_AUTHENTICATED
         self.session_state = self.SessionState.START_MENU
         self.error_message = self.ErrorMessage.VALID_INPUT
         self.client_socket = clientSocket
+        self.database_queue = queue
+        # Used to contain arguments for multi-stage things like creating a new
+        # user. If the request fails at any point, this dictionary is cleared.
+        self.current_request_args = {}
         # variable used to send an "Invalid response" message to users
 
 
@@ -319,20 +345,31 @@ class Server:
                 # https://stackoverflow.com/a/8545724
                 process_num = 5
 
+
+
+                database_queue = Queue
+                database_worker = Process(
+                    target = Database.start_database,
+                    args = (database_queue,)
+                )
+
                 socket_worker_pool = [
                     Process(
-                        target = ClientSession.handle_sessions,
-                        args = (ssock,)
+                        target = ClientSession,
+                        args = (ssock, database_queue,)
                     )
                     for x in range(process_num)
                 ]
+
+                database_worker.start()
 
 
                 for worker in socket_worker_pool:
                     worker.daemon = True
                     worker.start()
 
-                database = Database()
+
+
                 while True:
                     sleep(10)
 
