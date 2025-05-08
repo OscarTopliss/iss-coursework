@@ -242,13 +242,13 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
-        if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD
-        return (
-            '## Create new user ##\n'
-            'Please enter the password for your new account:\n'
-            'M Main Menu\n'
-            'Q Quit'
-        )
+        if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD:
+            return (
+                '## Create new user ##\n'
+                'Please enter the password for your new account:\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
 
     def reset_error(self, message: str) -> str:
         self.error_message = self.ErrorMessage.VALID_INPUT
