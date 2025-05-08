@@ -121,6 +121,7 @@ class ClientSession:
         NEW_USER_ALREADY_EXISTS = 4
         NEW_USER_NO_PASSWORD_GIVEN = 5
         NEW_USER_PASSWORD_TOO_SHORT = 6
+        NO_USERNAME_GIVEN = 7
         pass
 
 
@@ -199,6 +200,9 @@ class ClientSession:
             if len(response) >= 60:
                 self.error_message = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
                 return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.NO_USERNAME_GIVEN
+                return True
             if not response.isalnum():
                 self.error_message = self.ErrorMessage.\
                     NEW_USER_NAME_INVALID_CHARS
@@ -209,9 +213,9 @@ class ClientSession:
                 username = response
             )
             self.database_queue.put(request)
-            request_result = socket_conn.recv() # it's currently hanging
-            # forever on socket_conn.recv()
+            request_result = socket_conn.recv()
             socket_conn.close()
+            print(request_result)
             if request_result == RequestResponse.USER_EXISTS:
                 self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
                 return True
@@ -353,6 +357,11 @@ class ClientSession:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Password too short, must be at least 10 characters.'
+            )
+        if self.error_message == self.ErrorMessage.NO_USERNAME_GIVEN:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'No username given.'
             )
 
 

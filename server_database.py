@@ -28,6 +28,7 @@ from multiprocessing.connection import Connection
 from multiprocessing import Queue
 # Cryptography stuff
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+from cryptography.exceptions import InvalidKey
 # HSM stuff
 import server_HSM
 import os
@@ -104,10 +105,47 @@ class Database():
             users = session.execute(Select(self.User)\
                 .where(self.User.username.in_([username])))
 
-            print(f"users.all(): {users.all()}")
             if len(users.all()) >= 1:
                 return True
             return False
+
+    def validate_user_credentials(self, username: str, password: str) -> bool:
+        if self.check_if_user_exists(username) == False:
+            return False
+        with Session(self.engine) as session:
+            user_list = session.execute(Select(self.User)\
+                .where(self.User.username.in_([username])))
+            user = user_list.one()
+
+            salt = user.salt
+            password_hash = user.password
+            pepper = server_HSM.get_pepper()
+
+            kdf = Argon2id(
+                salt=salt,
+                length=32,
+                iterations=1,
+                lanes=4,
+                memory_cost=2 * 1024 * 1024, # 2 Gib
+                ad=None,
+                secret=pepper,
+            )
+
+            try:
+                kdf.verify(
+                    key_material = password.encode(),
+                    expected_key = password_hash
+                )
+            except InvalidKey:
+                return False
+            else:
+                return True
+
+
+
+
+
+
 
 
 
@@ -140,8 +178,10 @@ class Database():
 
     def handle_DBRDoesUserExist(self, request: DBRDoesUserExist):
         if self.check_if_user_exists(request.username) == True:
+            print("user exists")
             request.conn.send(RequestResponse.USER_EXISTS)
         else:
+            print("user doesn't exit")
             request.conn.send(RequestResponse.USER_DOESNT_EXIST)
         request.conn.close()
 
