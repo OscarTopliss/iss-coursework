@@ -196,6 +196,20 @@ class Database():
             session.add(log)
             session.commit()
 
+    def log_new_admin_creation(self, creating_admin: str, new_admin: str):
+        log = self.AdminLog(
+            action_date = datetime.datetime.now.date(),
+            action_time = datetime.datetime.now.time(),
+            action_type = AdminAction.CREATE_NEW_ADMIN,
+            admin_username = creating_admin,
+            target_user = new_admin
+        )
+
+        with Session(self.engine) as session:
+            session.add(log)
+            session.commit()
+
+
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
     # Database requests are named in the format DBRRequestName.
