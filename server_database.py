@@ -16,7 +16,7 @@
 ## Imports
 # Database stuff
 import sqlalchemy as sql
-from sqlalchemy import String, Select, Time
+from sqlalchemy import String, Select, Time, Date
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
 from sqlalchemy import Enum as SQLEnum
@@ -179,13 +179,15 @@ class Database():
 
         action_id: Mapped[int] = mapped_column(primary_key = True)
         action_type: Mapped[AdminAction] = mapped_column(SQLEnum(AdminAction))
+        action_date: Mapped[datetime.date] = mapped_column(Date)
         action_time: Mapped[datetime.time] = mapped_column(Time)
         admin_username: Mapped[str] = mapped_column(String(60))
         target_user: Mapped[Optional[str]] = mapped_column(String(60))
 
     def log_admin_login(self, username: str):
         log = self.AdminLog(
-            action_time = datetime.time(),
+            action_date = datetime.datetime.now().date(),
+            action_time = datetime.datetime.now().time(),
             action_type = AdminAction.LOGIN,
             admin_username = username
         )
@@ -323,6 +325,8 @@ class Database():
             return
         if isinstance(request, self.DBRCheckUserCredentials):
             self.handle_DBRCheckUserCredentials(request)
+        if isinstance(request, self.DBRLogAdminLogin):
+            self.handle_DBRLogAdminLogin(request)
 
     # A method to populate the database with initial data.
     def populate_database(self):
