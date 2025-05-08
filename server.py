@@ -175,10 +175,14 @@ class ClientSession:
         if self.session_state == self.SessionState.START_MENU:
             if response == "1":
                 self.session_state = self.SessionState.LOGIN_MENU_USERNAME
+                return True
             elif response == "2":
+                print("It gets this far.")
                 self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
+                return True
             else:
                 self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+                return True
 
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
             if response.upper() == "M":
@@ -201,6 +205,7 @@ class ClientSession:
                 process_conn = db_conn,
                 username = response
             )
+            self.database_queue.put(request)
             request_result = socket_conn.recv()
             if request_result == RequestResponse.USER_EXISTS:
                 self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
@@ -360,12 +365,7 @@ class Server:
                 # This multiprocessing setup is based on this:
                 # https://stackoverflow.com/a/8545724
                 process_num = 5
-
-
-
                 database_queue = Queue()
-
-
                 socket_worker_pool = [
                     Process(
                         target = ClientSession.handle_sessions,
@@ -373,20 +373,15 @@ class Server:
                     )
                     for x in range(process_num)
                 ]
-
                 database_worker = Process(
                     target = Database.start_database,
                     args = (database_queue,)
                 )
-
                 database_worker.start()
-
 
                 for worker in socket_worker_pool:
                     worker.daemon = True
                     worker.start()
-
-
 
                 while True:
                     sleep(10)
