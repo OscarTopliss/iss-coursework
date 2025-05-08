@@ -198,11 +198,24 @@ class Database():
 
     def log_new_admin_creation(self, creating_admin: str, new_admin: str):
         log = self.AdminLog(
-            action_date = datetime.datetime.now.date(),
-            action_time = datetime.datetime.now.time(),
+            action_date = datetime.datetime.now().date(),
+            action_time = datetime.datetime.now().time(),
             action_type = AdminAction.CREATE_NEW_ADMIN,
             admin_username = creating_admin,
             target_user = new_admin
+        )
+
+        with Session(self.engine) as session:
+            session.add(log)
+            session.commit()
+
+    def log_new_advisor_creation(self, creating_admin: str, new_advisor: str):
+        log = self.AdminLog(
+            action_date = datetime.datetime.now().date(),
+            action_time = datetime.datetime.now().time(),
+            action_type = AdminAction.CREATE_NEW_ADVISOR,
+            admin_username = creating_admin,
+            target_user = new_advisor
         )
 
         with Session(self.engine) as session:
@@ -249,11 +262,13 @@ class Database():
             process_conn: Connection,
             username: str,
             user_type: UserType,
-            password: str):
+            password: str,
+            admin: str = ""):
                 super().__init__(process_conn)
                 self.username = username
                 self.user_type = user_type
                 self.password = password
+                self.admin = admin
 
     def handle_DBRCreateNewUser(self, request: DBRCreateNewUser):
         if self.check_if_user_exists(request.username) == True:
@@ -266,6 +281,20 @@ class Database():
             password = request.password,
             pepper = server_HSM.get_pepper()
         )
+
+        if request.user_type == UserType.SYSTEM_ADMINISTRATOR and \
+        request.admin != "":
+            self.log_new_admin_creation(
+                creating_admin = request.admin,
+                new_admin = request.username
+            )
+        if request.user_type == UserType.FINANCIAL_ADVISOR and \
+        request.admin != "":
+            self.log_new_advisor_creation(
+                creating_admin = request.admin,
+                new_advisor = request.username
+            )
+
         request.conn.send(RequestResponse.CREATE_USER_SUCCESSFUL)
         request.conn.close()
 
@@ -319,15 +348,6 @@ class Database():
         self.log_admin_login(request.username)
         request.conn.send(RequestResponse.ADMIN_LOGIN_LOGGED_SUCCESSFULLY)
         request.conn.close()
-
-
-
-
-
-
-
-
-
 
 
     def handle_request(self, request: DatabaseRequest):

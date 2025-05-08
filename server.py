@@ -442,7 +442,8 @@ class ClientSession:
                 process_conn = db_conn,
                 username = self.request_args["username"],
                 password = self.request_args["password"],
-                user_type = self.request_args["type"]
+                user_type = self.request_args["type"],
+                admin = self.username
             )
 
             self.database_queue.put(request)
