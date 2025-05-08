@@ -95,7 +95,7 @@ class Database():
 
         new_user = self.User(
             username = username,
-            user_type = UserType.CLIENT,
+            user_type = user_type,
             password = password_bytes,
             password_salt = salt
         )
@@ -194,10 +194,8 @@ class Database():
 
     def handle_DBRDoesUserExist(self, request: DBRDoesUserExist):
         if self.check_if_user_exists(request.username) == True:
-            print("user exists")
             request.conn.send(RequestResponse.USER_EXISTS)
         else:
-            print("user doesn't exit")
             request.conn.send(RequestResponse.USER_DOESNT_EXIST)
         request.conn.close()
 
@@ -249,7 +247,8 @@ class Database():
                 request.conn.close()
                 return
             if user_type == UserType.FINANCIAL_ADVISOR:
-                request.conn.send(RequestResponse.USER_CREDENTIALS_VALID_ADVISOR)
+                request.conn.send(RequestResponse.\
+                    USER_CREDENTIALS_VALID_ADVISOR)
                 request.conn.close()
                 return
             if user_type == UserType.SYSTEM_ADMINISTRATOR:
@@ -277,12 +276,28 @@ class Database():
         if isinstance(request, self.DBRCheckUserCredentials):
             self.handle_DBRCheckUserCredentials(request)
 
-
+    # A method to populate the database with initial data.
+    def populate_database(self):
+            print('Populating database...')
+            self.create_new_user(
+                username = "admin",
+                user_type = UserType.SYSTEM_ADMINISTRATOR,
+                password = "password123",
+                pepper = server_HSM.get_pepper()
+            )
+            self.create_new_user(
+                username = "test_adv",
+                user_type = UserType.FINANCIAL_ADVISOR,
+                password = "advisor123",
+                pepper = server_HSM.get_pepper()
+            )
+            print('Done.')
 
     @staticmethod
     def start_database(queue: Queue):
         print("DB worker started")
         database = Database(queue = queue)
+        database.populate_database()
         while True:
             request = database.queue.get()
             database.handle_request(request)

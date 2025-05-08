@@ -539,6 +539,8 @@ class Server:
 
 
 
+
+
     def start_server_loop(self, backlog: int):
         context = self.ssl_context
 
@@ -568,6 +570,8 @@ class Server:
                 for worker in socket_worker_pool:
                     worker.daemon = True
                     worker.start()
+
+                print("Listener started.")
 
                 while True:
                     sleep(10)
