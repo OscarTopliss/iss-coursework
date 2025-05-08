@@ -56,6 +56,13 @@ class RequestResponse(Enum):
     USER_CREDENTIALS_VALID_ADMIN = 6
     USER_CREDENTIALS_INVALID = 7
 
+# Types of admin action. This is for the admin actions logging table.
+class AdminActions(Enum):
+    LOGIN = 0
+    CREATE_NEW_ADMIN = 1
+    CREATE_NEW_ADVISOR = 2
+    CREATE_NEW_CLIENT = 3
+
 
 class Database():
     class Base(DeclarativeBase):
@@ -164,6 +171,9 @@ class Database():
             # for why this next line has weird syntax.
             user_type = user_types_list.all()[0][0]
             return user_type
+
+    # class AdminLog(Base):
+    #     __table_name__ = "admin_log"
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.

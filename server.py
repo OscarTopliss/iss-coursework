@@ -564,16 +564,16 @@ class ClientSession:
             if self.request_args["type"] == DBUserType.SYSTEM_ADMINISTRATOR:
                 return (
                     '## Administrator - User Creation Successful ##\n'
-                    f'New ADMIN account {self.request_args["username"]}\
-                    created.\n'
+                    f'New ADMIN account {self.request_args["username"]}'
+                    ' created.\n'
                     '<Enter> Main Menu\n'
                     'Q Quit'
                 )
             if self.request_args["type"] == DBUserType.FINANCIAL_ADVISOR:
                 return (
                     '## Administrator - User Creation Successful ##\n'
-                    f'New CLIENT account {self.request_args["username"]}\
-                    created.\n'
+                    f'New CLIENT account {self.request_args["username"]}'
+                    ' created.\n'
                     '<Enter> Main Menu\n'
                     'Q Quit'
                 )
