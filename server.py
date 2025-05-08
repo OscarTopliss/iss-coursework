@@ -364,18 +364,20 @@ class Server:
 
 
                 database_queue = Queue()
-                database_worker = Process(
-                    target = Database.start_database,
-                    args = (database_queue,)
-                )
+
 
                 socket_worker_pool = [
                     Process(
-                        target = ClientSession,
+                        target = ClientSession.handle_sessions,
                         args = (ssock, database_queue,)
                     )
                     for x in range(process_num)
                 ]
+
+                database_worker = Process(
+                    target = Database.start_database,
+                    args = (database_queue,)
+                )
 
                 database_worker.start()
 
