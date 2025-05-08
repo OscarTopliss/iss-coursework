@@ -107,6 +107,9 @@ class ClientSession:
         LOGIN_SUCCESSFUL = 8
         ADVISOR_MENU = 9
         ADMIN_MENU = 10
+        ADMIN_NEW_USER_TYPE = 11
+        ADMIN_NEW_USER_USERNAME = 12
+        ADMIN_NEW_USER_PASSWORD = 13
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -172,6 +175,10 @@ class ClientSession:
         self.request_args = {}
         self.session_state = self.SessionState.START_MENU
 
+    def return_to_admin_menu(self):
+        self.request_args = {}
+        self.session_state = self.SessionState.ADMIN_MENU
+
     def handle_client_response(self,
         message: tuple[bytes, MessageCode]) -> bool:
         if message[1] == self.MessageCode.ERROR:
@@ -181,6 +188,7 @@ class ClientSession:
         message_json = json.loads(message[0].decode())
         response = message_json["message"]
 
+        ############### UNAUTHENTICATED METHODS ################################
         if self.session_state == self.SessionState.START_MENU:
             if response == "1":
                 self.session_state = self.SessionState.LOGIN_MENU_USERNAME
@@ -261,7 +269,6 @@ class ClientSession:
                 return True
 
 
-
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             if response.upper() == "M":
                 self.return_to_start_menu()
@@ -340,6 +347,32 @@ class ClientSession:
             self.session_state = self.SessionState.CLIENT_MENU
 
 
+        ############### ADMIN METHODS ##########################################
+
+        if self.session_state == self.SessionState.ADMIN_MENU:
+            if response == "1":
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                return True
+
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_TYPE:
+            if response.upper() == "M":
+                self.return_to_admin_menu()
+                return True
+            if response == "1":
+                self.request_args["type"] = "admin"
+                self.session_state = self.SessionState.ADMIN_NEW_USER_USERNAME
+                return True
+            if response == "2":
+                self.request_args["type"] = "advisor"
+                self.session_state = self.SessionState.ADMIN_NEW_USER_USERNAME
+                return True
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
+
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_USERNAME:
+            pass
+
+
         return True
 
 
@@ -370,14 +403,14 @@ class ClientSession:
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             return(
                 '## Create new user ##\n'
-                'Please enter the username for your new account:\n'
+                'Please enter the USERNAME for your new account:\n'
                 'M Main Menu\n'
                 'Q Quit'
             )
         if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD:
             return (
                 '## Create new user ##\n'
-                'Please enter the password for your new account:\n'
+                'Please enter the PASSWORD for your new account:\n'
                 'M Main Menu\n'
                 'Q Quit'
             )
@@ -409,8 +442,33 @@ class ClientSession:
         if self.session_state == self.SessionState.ADMIN_MENU:
             return (
                 '## Administrator Main Menu ##\n'
+                '1 Create new User\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_TYPE:
+            return (
+                '## Administrator - Create User ##\n'
+                'Please select a USER TYPE for the new account.\n'
+                '1 System Administrator\n'
+                '2 Financial Advisor\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_USERNAME:
+            return (
+                '## Administrator - Create User ##\n'
+                'Please enter the USERNAME for the new account.\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_PASSWORD:
+            return (
+                '## Administrator - Create User ##\n'
+                'Please enter the PASSWORD for the new account.\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+
 
 
         return ''
