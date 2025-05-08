@@ -359,6 +359,13 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
+            if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
+                return(
+                    '## Login ##\n'
+                    'Please enter password:\n'
+                    'M Main Menu\n'
+                    'Q Quit'
+                )
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             return(
                 '## Create new user ##\n'
@@ -450,7 +457,7 @@ class ClientSession:
                 'No username given.'
             )
 
-        if self.error_message = self.ErrorMessage.INVALID_CREDENTIALS:
+        if self.error_message == self.ErrorMessage.INVALID_CREDENTIALS:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Username or password were incorrect.'
