@@ -51,6 +51,10 @@ class RequestResponse(Enum):
     USER_DOESNT_EXIST = 1
     CREATE_USER_SUCCESSFUL = 2
     CREATE_USER_USER_EXISTS = 3
+    USER_CREDENTIALS_VALID_CLIENT = 4
+    USER_CREDENTIALS_VALID_ADVISOR = 5
+    USER_CREDENTIALS_VALID_ADMIN = 6
+    USER_CREDENTIALS_INVALID = 7
 
 
 class Database():
@@ -141,13 +145,18 @@ class Database():
             else:
                 return True
 
-
-
-
-
-
-
-
+    def get_user_type(self, username: str) -> UserType:
+        if self.check_if_user_exists(username) == False:
+            raise Exception("User doesn't exist!")
+        with Session(self.engine) as session:
+            user_types_list = session.execute(
+                Select(self.User.user_type)\
+                .where(self.User.username.in_([username]))
+            )
+            # See https://docs.sqlalchemy.org/en/20/orm/queryguide/select.html#exists-forms-has-any
+            # for why this next line has weird syntax.
+            user_type = user_types_list.all()[0][0]
+            return user_type
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
@@ -211,6 +220,41 @@ class Database():
         request.conn.close()
 
 
+    class DBRCheckUserCredentials(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            username: str,
+            password: str
+        ):
+            super().__init__(process_conn)
+            self.username = username
+            self.password = password
+
+    def handle_DBRCheckUserCredentials(self, request: DBRCheckUserCredentials):
+        if self.validate_user_credentials(
+            username = request.username,
+            password = request.password
+        ):
+            user_type = self.get_user_type(request.username)
+            if user_type == UserType.CLIENT:
+                request.conn.send(RequestResponse.USER_CREDENTIALS_VALID_CLIENT)
+                request.conn.close()
+                return
+            if user_type == UserType.FINANCIAL_ADVISOR:
+                request.conn.send(RequestResponse.USER_CREDENTIALS_VALID_ADVISOR)
+                request.conn.close()
+                return
+            if user_type == UserType.SYSTEM_ADMINISTRATOR:
+                request.conn.send(RequestResponse.USER_CREDENTIALS_VALID_ADMIN)
+                request.conn.close()
+                return
+
+        else:
+            request.conn.send(RequestResponse.USER_CREDENTIALS_INVALID)
+        request.conn.close()
+
+
 
 
 
@@ -223,6 +267,8 @@ class Database():
         if isinstance(request, self.DBRCreateNewUser):
             self.handle_DBRCreateNewUser(request)
             return
+        if isinstance(request, self.DBRCheckUserCredentials):
+            self.handle_DBRCheckUserCredentials(request)
 
 
 

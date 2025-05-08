@@ -104,6 +104,9 @@ class ClientSession:
         CREATE_NEW_USER_PASSWORD = 5
         CREATE_USER_SUCCESSFUL = 6
         CLIENT_MENU = 7
+        LOGIN_SUCCESSFUL = 8
+        ADVISOR_MENU = 9
+        ADMIN_MENU = 10
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -119,9 +122,10 @@ class ClientSession:
         NEW_USER_NAME_TOO_LONG = 2
         NEW_USER_NAME_INVALID_CHARS = 3
         NEW_USER_ALREADY_EXISTS = 4
-        NEW_USER_NO_PASSWORD_GIVEN = 5
+        NO_PASSWORD_GIVEN = 5
         NEW_USER_PASSWORD_TOO_SHORT = 6
         NO_USERNAME_GIVEN = 7
+        INVALID_CREDENTIALS = 8
         pass
 
 
@@ -192,6 +196,70 @@ class ClientSession:
             if response.upper() == "M":
                 self.return_to_start_menu()
                 return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.NO_USERNAME_GIVEN
+                return True
+            self.session_state = self.SessionState.LOGIN_MENU_PASSWORD
+            self.request_args["username"] = response
+            return True
+
+        if self.session_state == self.SessionState.LOGIN_MENU_PASSWORD:
+            if response.upper() == "M":
+                self.return_to_start_menu()
+                return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.NO_PASSWORD_GIVEN
+                self.session_state = self.SessionState.LOGIN_MENU_USERNAME
+                return True
+
+            socket_conn, db_conn = Pipe()
+            self.request_args["password"] = response
+            request = Database.DBRCheckUserCredentials(
+                process_conn = db_conn,
+                username = self.request_args["username"],
+                password = self.request_args["password"]
+            )
+            request_response = socket_conn.recv()
+
+            if request_response == RequestResponse.\
+            USER_CREDENTIALS_VALID_CLIENT:
+                self.session_state = self.SessionState.LOGIN_SUCCESSFUL
+                self.username = self.request_args["username"]
+                self.user_type = self.UserType.CLIENT
+                self.request_args = {}
+                return True
+            if request_response == RequestResponse.\
+            USER_CREDENTIALS_VALID_ADVISOR:
+                self.session_state = self.SessionState.LOGIN_SUCCESSFUL
+                self.username = self.request_args["username"]
+                self.user_type = self.UserType.FINANCIAL_ADVISOR
+                self.request_args = {}
+                return True
+            if request_response == RequestResponse.\
+            USER_CREDENTIALS_VALID_ADMIN:
+                self.session_state = self.SessionState.LOGIN_SUCCESSFUL
+                self.username = self.request_args["username"]
+                self.user_type = self.UserType.SYSTEM_ADMINISTRATOR
+                self.request_args = {}
+                return True
+            if request_response == RequestResponse.USER_CREDENTIALS_INVALID:
+                self.session_state = self.SessionState.LOGIN_MENU_USERNAME
+                self.error_message = self.ErrorMessage.INVALID_CREDENTIALS
+                return True
+
+
+        if self.session_state == self.SessionState.LOGIN_SUCCESSFUL:
+            if self.user_type == self.UserType.CLIENT:
+                self.session_state = self.SessionState.CLIENT_MENU
+                return True
+            if self.user_type == self.UserType.FINANCIAL_ADVISOR:
+                self.session_state = self.SessionState.ADVISOR_MENU
+                return True
+            if self.user_type == self.UserType.SYSTEM_ADMINISTRATOR:
+                self.session_state = self.SessionState.ADMIN_MENU
+                return True
+
+
 
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             if response.upper() == "M":
@@ -230,7 +298,7 @@ class ClientSession:
                 return True
             if len(response) == 0:
                 self.error_message = self.ErrorMessage.\
-                NEW_USER_NO_PASSWORD_GIVEN
+                NO_PASSWORD_GIVEN
                 self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
                 return True
             if len(response) < 10:
@@ -256,7 +324,6 @@ class ClientSession:
             socket_conn.close()
 
             if request_response == RequestResponse.CREATE_USER_SUCCESSFUL:
-                print("this is working")
                 self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
                 self.username = self.request_args["username"]
                 self.user_type = self.UserType.CLIENT
@@ -314,11 +381,30 @@ class ClientSession:
                 '<Enter> Continue\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.LOGIN_SUCCESSFUL:
+            return (
+                '## Login successful ##\n'
+                f'Now logged in as {self.username}\n'
+                '<Enter> continue\n'
+                'Q Quit'
+            )
         if self.session_state == self.SessionState.CLIENT_MENU:
             return (
                 '## Main Menu ##\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.ADVISOR_MENU:
+            return (
+                '## Financial Advisor Main Menu ##\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.ADMIN_MENU:
+            return (
+                '## Administrator Main Menu ##\n'
+                'Q Quit'
+            )
+
+
         return ''
 
     # resetting the args if there's an error/invalid input during a user
@@ -348,7 +434,7 @@ class ClientSession:
                 '#! Invalid Input !#\n'
                 'That username is taken. Please select another.'
             )
-        if self.error_message == self.ErrorMessage.NEW_USER_NO_PASSWORD_GIVEN:
+        if self.error_message == self.ErrorMessage.NO_PASSWORD_GIVEN:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'No password given.'
@@ -364,6 +450,11 @@ class ClientSession:
                 'No username given.'
             )
 
+        if self.error_message = self.ErrorMessage.INVALID_CREDENTIALS:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Username or password were incorrect.'
+            )
 
         return self.reset_error('#! Invalid Input !#')
 
