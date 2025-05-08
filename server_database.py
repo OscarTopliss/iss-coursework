@@ -61,7 +61,7 @@ class Database():
 
         id: Mapped[int] = mapped_column(primary_key = True)
         username: Mapped[str] = mapped_column(String(60), unique=True)
-        user_type: Mapped[UserType] = mapped_column(SQLEnum)
+        user_type: Mapped[UserType] = mapped_column(SQLEnum(UserType))
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
@@ -81,7 +81,7 @@ class Database():
             length=32,
             iterations=1,
             lanes=4,
-            memory_cost=2 * 1024 * (2 ** 1024), # 2 Gib
+            memory_cost=2 * 1024 * 1024, # 2 Gib
             ad=None,
             secret=pepper,
         )
@@ -90,6 +90,7 @@ class Database():
 
         new_user = self.User(
             username = username,
+            user_type = UserType.CLIENT,
             password = password_bytes,
             password_salt = salt
         )
