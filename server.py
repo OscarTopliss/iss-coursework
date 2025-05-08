@@ -110,6 +110,7 @@ class ClientSession:
         ADMIN_NEW_USER_TYPE = 11
         ADMIN_NEW_USER_USERNAME = 12
         ADMIN_NEW_USER_PASSWORD = 13
+        ADMIN_NEW_USER_SUCCESS = 14
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -331,6 +332,8 @@ class ClientSession:
             request_response = socket_conn.recv()
             socket_conn.close()
 
+            return True
+
             if request_response == RequestResponse.CREATE_USER_SUCCESSFUL:
                 self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
                 self.username = self.request_args["username"]
@@ -359,18 +362,96 @@ class ClientSession:
                 self.return_to_admin_menu()
                 return True
             if response == "1":
-                self.request_args["type"] = "admin"
+                self.request_args["type"] = DBUserType.SYSTEM_ADMINISTRATOR
                 self.session_state = self.SessionState.ADMIN_NEW_USER_USERNAME
                 return True
             if response == "2":
-                self.request_args["type"] = "advisor"
+                self.request_args["type"] = DBUserType.FINANCIAL_ADVISOR
                 self.session_state = self.SessionState.ADMIN_NEW_USER_USERNAME
                 return True
             self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
             return True
 
         if self.session_state == self.SessionState.ADMIN_NEW_USER_USERNAME:
-            pass
+            if response.upper() == "M":
+                self.return_to_admin_menu()
+                return True
+            if len(response) >= 60:
+                self.error_message = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                self.request_args = {}
+                return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.NO_USERNAME_GIVEN
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                self.request_args = {}
+                return True
+            if not response.isalnum():
+                self.error_message = self.ErrorMessage.\
+                    NEW_USER_NAME_INVALID_CHARS
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                self.request_args = {}
+                return True
+            socket_conn, db_conn = Pipe()
+            request = server_database.Database.DBRDoesUserExist(
+                process_conn = db_conn,
+                username = response
+            )
+            self.database_queue.put(request)
+            request_result = socket_conn.recv()
+            socket_conn.close()
+            print(request_result)
+            if request_result == RequestResponse.USER_EXISTS:
+                self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                self.request_args = {}
+                return True
+            if request_result == RequestResponse.USER_DOESNT_EXIST:
+                self.session_state = self.SessionState.ADMIN_NEW_USER_PASSWORD
+                self.request_args["username"] = response
+                return True
+
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_PASSWORD:
+            if response.upper() == "M":
+                self.return_to_admin_menu()
+                return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.\
+                NO_PASSWORD_GIVEN
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                return True
+            if len(response) < 10:
+                self.error_message = self.ErrorMessage.\
+                NEW_USER_PASSWORD_TOO_SHORT
+                self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
+                return True
+
+            self.request_args["password"] = response
+
+            socket_conn, db_conn = Pipe()
+
+            request = server_database.Database.DBRCreateNewUser(
+                process_conn = db_conn,
+                username = self.request_args["username"],
+                password = self.request_args["password"],
+                user_type = self.request_args["type"]
+            )
+
+            self.database_queue.put(request)
+
+            request_response = socket_conn.recv()
+            socket_conn.close()
+
+            self.session_state = self.SessionState.ADMIN_NEW_USER_SUCCESS
+            return True
+
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_SUCCESS:
+            self.return_to_admin_menu()
+            return True
+
+
+
+
 
 
         return True
@@ -378,6 +459,7 @@ class ClientSession:
 
     # Finds the message to send to the client program based on the status of
     # self.sessionState, which references the SessionState enum.
+    ######################### UNAUTHENTICATED STUFF ############################
     def get_message_to_send(self) -> str:
         if self.session_state == self.SessionState.START_MENU:
             return (
@@ -429,11 +511,13 @@ class ClientSession:
                 '<Enter> continue\n'
                 'Q Quit'
             )
+        ######################### CLIENT STUFF #################################
         if self.session_state == self.SessionState.CLIENT_MENU:
             return (
                 '## Main Menu ##\n'
                 'Q Quit'
             )
+        ######################### ADMIN STUFF ##################################
         if self.session_state == self.SessionState.ADVISOR_MENU:
             return (
                 '## Financial Advisor Main Menu ##\n'
@@ -468,8 +552,31 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
-
-
+        if self.session_state == self.SessionState.ADMIN_NEW_USER_SUCCESS:
+            if self.request_args["type"] == DBUserType.CLIENT:
+                return (
+                    '## Administrator - User Creation Successful ##\n'
+                    f'New CLIENT account {self.request_args["username"]}\
+                    created.\n'
+                    '<Enter> Main Menu\n'
+                    'Q Quit'
+                )
+            if self.request_args["type"] == DBUserType.SYSTEM_ADMINISTRATOR:
+                return (
+                    '## Administrator - User Creation Successful ##\n'
+                    f'New ADMIN account {self.request_args["username"]}\
+                    created.\n'
+                    '<Enter> Main Menu\n'
+                    'Q Quit'
+                )
+            if self.request_args["type"] == DBUserType.FINANCIAL_ADVISOR:
+                return (
+                    '## Administrator - User Creation Successful ##\n'
+                    f'New CLIENT account {self.request_args["username"]}\
+                    created.\n'
+                    '<Enter> Main Menu\n'
+                    'Q Quit'
+                )
 
         return ''
 
