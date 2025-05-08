@@ -36,6 +36,7 @@ import os
 from enum import Enum
 from uuid import uuid4 as uuid
 import datetime
+from prettytable import PrettyTable
 
 
 
@@ -222,6 +223,36 @@ class Database():
             session.add(log)
             session.commit()
 
+    def get_all_admin_logs_string(self):
+        with Session(self.engine) as session:
+            logs = session.execute(Select(AdminLog))
+
+            table = PrettyTable(
+                [
+                    "ID",
+                    "ACTION",
+                    "DATE",
+                    "TIME",
+                    "ADMIN",
+                    "TARGET USER"
+                ]
+            )
+            for log in logs.scalars():
+                table.add_row(
+                    str(log.action_id),
+                    str(log.action_type),
+                    str(log.action_date),
+                    str(log.action_time),
+                    log.admin_username,
+                    log.target_user
+                )
+
+            return(table.get_string())
+
+
+
+
+
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
@@ -347,6 +378,21 @@ class Database():
     def handle_DBRLogAdminLogin(self, request: DBRLogAdminLogin):
         self.log_admin_login(request.username)
         request.conn.send(RequestResponse.ADMIN_LOGIN_LOGGED_SUCCESSFULLY)
+        request.conn.close()
+
+    class DBRGetAllAdminLogs(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection
+        ):
+            super().__init__(process_conn)
+
+    # This breaks the convention of sending a RequestResponse object, because
+    # it needs to be able to send data, not just status, back to the socket
+    # process.
+    def handle_DBRGetAllAdminLogs(self, request:DBRGetAllAdminLogs):
+        string = self.get_all_admin_logs_string
+        request.conn.send(string)
         request.conn.close()
 
 

@@ -4,3 +4,4 @@ pytest
 pip
 urllib3
 sqlalchemy
+prettytable

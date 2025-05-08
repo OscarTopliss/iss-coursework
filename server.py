@@ -111,6 +111,9 @@ class ClientSession:
         ADMIN_NEW_USER_USERNAME = 12
         ADMIN_NEW_USER_PASSWORD = 13
         ADMIN_NEW_USER_SUCCESS = 14
+        ADMIN_LOG_MENU = 15
+        ADMIN_VIEW_ALL_LOGS = 16
+        ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME = 17
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -364,6 +367,12 @@ class ClientSession:
             if response == "1":
                 self.session_state = self.SessionState.ADMIN_NEW_USER_TYPE
                 return True
+            if response == "2":
+                self.session_state = self.SessionState.ADMIN_LOG_MENU
+                return True
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
+
 
         if self.session_state == self.SessionState.ADMIN_NEW_USER_TYPE:
             if response.upper() == "M":
@@ -458,9 +467,30 @@ class ClientSession:
             self.return_to_admin_menu()
             return True
 
+        if self.session_state == self.SessionState.ADMIN_LOG_MENU:
+            if response.upper() == "M":
+                self.return_to_admin_menu()
+                return True
+            if response == "1":
+                self.session_state = self.SessionState.ADMIN_VIEW_ALL_LOGS
+                process_conn, db_conn = Pipe()
+                request = Database.DBRGetAllAdminLogs(
+                    process_conn = db_conn
+                )
+                self.database_queue.put(request)
+                self.request_args["log_string"] = process_conn.recv()
+                process_conn.close()
+                return True
+            if response == "2":
+                self.session_state = self.SessionState.\
+                ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME
+                return True
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
 
-
-
+        if self.session_state == self.SessionState.ADMIN_VIEW_ALL_LOGS:
+            self.return_to_admin_menu()
+            return True
 
 
         return True
@@ -535,7 +565,33 @@ class ClientSession:
         if self.session_state == self.SessionState.ADMIN_MENU:
             return (
                 '## Administrator Main Menu ##\n'
-                '1 Create new User\n'
+                '1 Create New User\n'
+                '2 View Administrative Action Logs\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.ADMIN_LOG_MENU:
+            return (
+                '## Administrator - Admin Log Menu ##\n'
+                '1 View All Administrative Logs\n'
+                '2 View All Actions by a particular Admin\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.ADMIN_VIEW_ALL_LOGS:
+            return (
+                '## Administrator - View All Logs\n'
+                f'{self.request_args["log_string"]}\n'
+                '<Enter> Return to Main Menu\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.\
+        ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME:
+            return (
+                '## Administrator - View Logs by Admin\n'
+                'Please enter the username of the admin you\'d\n'
+                'like to view logs for.\n'
+                'M Main Menu\n'
                 'Q Quit'
             )
         if self.session_state == self.SessionState.ADMIN_NEW_USER_TYPE:
