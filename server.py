@@ -102,6 +102,8 @@ class ClientSession:
         LOGIN_MENU_PASSWORD = 3
         CREATE_NEW_USER_USERNAME = 4
         CREATE_NEW_USER_PASSWORD = 5
+        CREATE_USER_SUCCESSFUL = 6
+        CLIENT_MENU = 7
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -117,6 +119,8 @@ class ClientSession:
         NEW_USER_NAME_TOO_LONG = 2
         NEW_USER_NAME_INVALID_CHARS = 3
         NEW_USER_ALREADY_EXISTS = 4
+        NEW_USER_NO_PASSWORD_GIVEN = 5
+        NEW_USER_PASSWORD_TOO_SHORT = 6
         pass
 
 
@@ -160,7 +164,7 @@ class ClientSession:
     # is valid and the connection is still open, False otherwise.
     # This lets the client program safely exit the loop when needed.
     def return_to_start_menu(self):
-        self.current_request_args = {}
+        self.request_args = {}
         self.session_state = self.SessionState.START_MENU
 
     def handle_client_response(self,
@@ -205,23 +209,63 @@ class ClientSession:
                 username = response
             )
             self.database_queue.put(request)
-            print("ABC")
             request_result = socket_conn.recv() # it's currently hanging
             # forever on socket_conn.recv()
-            print("DEF")
             socket_conn.close()
             if request_result == RequestResponse.USER_EXISTS:
                 self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
                 return True
             if request_result == RequestResponse.USER_DOESNT_EXIST:
                 self.session_state = self.SessionState.CREATE_NEW_USER_PASSWORD
-                self.current_request_args["username"] = response
+                self.request_args["username"] = response
                 return True
 
         if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD:
             if response.upper() == "M":
                 self.return_to_start_menu()
                 return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.\
+                NEW_USER_NO_PASSWORD_GIVEN
+                self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
+                return True
+            if len(response) < 10:
+                self.error_message = self.ErrorMessage.\
+                NEW_USER_PASSWORD_TOO_SHORT
+                self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
+                return True
+
+            self.request_args["password"] = response
+
+            socket_conn, db_conn = Pipe()
+
+            request = server_database.Database.DBRCreateNewUser(
+                process_conn = db_conn,
+                username = self.request_args["username"],
+                password = self.request_args["password"],
+                user_type = DBUserType.CLIENT
+            )
+
+            self.database_queue.put(request)
+
+            request_response = socket_conn.recv()
+            socket_conn.close()
+
+            if request_response == RequestResponse.CREATE_USER_SUCCESSFUL:
+                self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
+                self.username = self.request_args["username"]
+                self.user_type = self.UserType.CLIENT
+                self.request_args = {}
+                return True
+            if request_response == RequestResponse.CREATE_USER_USER_EXISTS:
+                # This *theoretically* shouldn't be possible to reach.
+                self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
+                self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
+                return True
+
+        if self.session_state == self.SessionState.CREATE_USER_SUCCESSFUL:
+            self.session_state = self.SessionState.CLIENT_MENU
+
 
         return True
 
@@ -257,11 +301,29 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.CREATE_USER_SUCCESSFUL:
+            return (
+                '## User Creation Successful ##\n'
+                'Successfully created new user.\n'
+                f'Now logged in as {self.username}\n'
+                'Enter Continue\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.CLIENT_MENU:
+            return (
+                '## Main Menu ##\n'
+                'Q Quit'
+            )
+        return ''
 
+    # resetting the args if there's an error/invalid input during a user
+    # process. Note that this means the user should be sent back to the start
+    # of a process if they enter an invalid argument, which isn't the most
+    # usable, but greatly simplifies the system and makes bugs less likely.
     def reset_error(self, message: str) -> str:
         self.error_message = self.ErrorMessage.VALID_INPUT
         # resetting request args after handling error.
-        self.current_request_args = {}
+        self.request_args = {}
         return message
 
     def get_error_message(self) -> str:
@@ -281,6 +343,18 @@ class ClientSession:
                 '#! Invalid Input !#\n'
                 'That username is taken. Please select another.'
             )
+        if self.error_message == self.ErrorMessage.NEW_USER_NO_PASSWORD_GIVEN:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'No password given.'
+            )
+        if self.error_message == self.ErrorMessage.NEW_USER_PASSWORD_TOO_SHORT:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Password too short, must be at least 10 characters.'
+            )
+
+
         return self.reset_error('#! Invalid Input !#')
 
     # Loop which handles a session until it terminates.
@@ -321,7 +395,7 @@ class ClientSession:
         self.database_queue = queue
         # Used to contain arguments for multi-stage things like creating a new
         # user. If the request fails at any point, this dictionary is cleared.
-        self.current_request_args = {}
+        self.request_args = {}
         # variable used to send an "Invalid response" message to users
 
 
