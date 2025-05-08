@@ -159,6 +159,10 @@ class ClientSession:
     # Handles a message and it's error code. Returns True if the the message
     # is valid and the connection is still open, False otherwise.
     # This lets the client program safely exit the loop when needed.
+    def return_to_start_menu(self):
+        self.current_request_args = {}
+        self.session_state = self.SessionState.START_MENU
+
     def handle_client_response(self,
         message: tuple[bytes, MessageCode]) -> bool:
         if message[1] == self.MessageCode.ERROR:
@@ -178,11 +182,12 @@ class ClientSession:
 
         if self.session_state == self.SessionState.LOGIN_MENU_USERNAME:
             if response.upper() == "M":
-                self.session_state = self.SessionState.START_MENU
+                self.return_to_start_menu()
+                return True
 
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             if response.upper() == "M":
-                self.session_state = self.SessionState.START_MENU
+                self.return_to_start_menu()
                 return True
             if len(response) >= 60:
                 self.error_message = self.ErrorMessage.NEW_USER_NAME_TOO_LONG
@@ -202,10 +207,13 @@ class ClientSession:
                 return True
             if request_result == RequestResponse.USER_DOESNT_EXIST:
                 self.session_state = self.SessionState.CREATE_NEW_USER_PASSWORD
+                self.current_request_args["username"] = response
                 return True
 
         if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD:
-            pass
+            if response.upper() == "M":
+                self.return_to_start_menu()
+                return True
 
         return True
 
@@ -230,14 +238,22 @@ class ClientSession:
         if self.session_state == self.SessionState.CREATE_NEW_USER_USERNAME:
             return(
                 '## Create new user ##\n'
-                'Please enter username for new user:\n'
+                'Please enter the username for your new account:\n'
                 'M Main Menu\n'
                 'Q Quit'
             )
-        return ""
+        if self.session_state == self.SessionState.CREATE_NEW_USER_PASSWORD
+        return (
+            '## Create new user ##\n'
+            'Please enter the password for your new account:\n'
+            'M Main Menu\n'
+            'Q Quit'
+        )
 
     def reset_error(self, message: str) -> str:
         self.error_message = self.ErrorMessage.VALID_INPUT
+        # resetting request args after handling error.
+        self.current_request_args = {}
         return message
 
     def get_error_message(self) -> str:
