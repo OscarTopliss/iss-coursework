@@ -252,6 +252,7 @@ class ClientSession:
             socket_conn.close()
 
             if request_response == RequestResponse.CREATE_USER_SUCCESSFUL:
+                print("this is working")
                 self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
                 self.username = self.request_args["username"]
                 self.user_type = self.UserType.CLIENT
@@ -306,7 +307,7 @@ class ClientSession:
                 '## User Creation Successful ##\n'
                 'Successfully created new user.\n'
                 f'Now logged in as {self.username}\n'
-                'Enter Continue\n'
+                '<Enter> Continue\n'
                 'Q Quit'
             )
         if self.session_state == self.SessionState.CLIENT_MENU:
