@@ -177,7 +177,6 @@ class ClientSession:
                 self.session_state = self.SessionState.LOGIN_MENU_USERNAME
                 return True
             elif response == "2":
-                print("It gets this far.")
                 self.session_state = self.SessionState.CREATE_NEW_USER_USERNAME
                 return True
             else:
@@ -206,7 +205,11 @@ class ClientSession:
                 username = response
             )
             self.database_queue.put(request)
-            request_result = socket_conn.recv()
+            print("ABC")
+            request_result = socket_conn.recv() # it's currently hanging
+            # forever on socket_conn.recv()
+            print("DEF")
+            socket_conn.close()
             if request_result == RequestResponse.USER_EXISTS:
                 self.error_message = self.ErrorMessage.NEW_USER_ALREADY_EXISTS
                 return True
