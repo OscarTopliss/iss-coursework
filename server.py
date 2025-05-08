@@ -250,6 +250,14 @@ class ClientSession:
                 self.session_state = self.SessionState.LOGIN_SUCCESSFUL
                 self.username = self.request_args["username"]
                 self.user_type = self.UserType.SYSTEM_ADMINISTRATOR
+                process_conn, db_conn = Pipe()
+                request = Database.DBRLogAdminLogin(
+                    process_conn = db_conn,
+                    admin_username = self.username
+                )
+                self.database_queue.put(request)
+                process_conn.recv()
+
                 self.request_args = {}
                 return True
             if request_response == RequestResponse.USER_CREDENTIALS_INVALID:

@@ -16,7 +16,7 @@
 ## Imports
 # Database stuff
 import sqlalchemy as sql
-from sqlalchemy import String, Select
+from sqlalchemy import String, Select, Time
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
 from sqlalchemy import Enum as SQLEnum
@@ -35,6 +35,7 @@ import os
 ## misc
 from enum import Enum
 from uuid import uuid4 as uuid
+import datetime
 
 
 
@@ -55,9 +56,10 @@ class RequestResponse(Enum):
     USER_CREDENTIALS_VALID_ADVISOR = 5
     USER_CREDENTIALS_VALID_ADMIN = 6
     USER_CREDENTIALS_INVALID = 7
+    ADMIN_LOGIN_LOGGED_SUCCESSFULLY = 8
 
 # Types of admin action. This is for the admin actions logging table.
-class AdminActions(Enum):
+class AdminAction(Enum):
     LOGIN = 0
     CREATE_NEW_ADMIN = 1
     CREATE_NEW_ADVISOR = 2
@@ -172,8 +174,25 @@ class Database():
             user_type = user_types_list.all()[0][0]
             return user_type
 
-    # class AdminLog(Base):
-    #     __table_name__ = "admin_log"
+    class AdminLog(Base):
+        __tablename__ = "admin_log"
+
+        action_id: Mapped[int] = mapped_column(primary_key = True)
+        action_type: Mapped[AdminAction] = mapped_column(SQLEnum(AdminAction))
+        action_time: Mapped[datetime.time] = mapped_column(Time)
+        admin_username: Mapped[str] = mapped_column(String(60))
+        target_user: Mapped[Optional[str]] = mapped_column(String(60))
+
+    def log_admin_login(self, username: str):
+        log = self.AdminLog(
+            action_time = datetime.time(),
+            action_type = AdminAction.LOGIN,
+            admin_username = username
+        )
+
+        with Session(self.engine) as session:
+            session.add(log)
+            session.commit()
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
@@ -269,6 +288,25 @@ class Database():
         else:
             request.conn.send(RequestResponse.USER_CREDENTIALS_INVALID)
         request.conn.close()
+
+
+    class DBRLogAdminLogin(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            admin_username: str,
+        ):
+            super().__init__(process_conn)
+            self.username = admin_username
+
+    def handle_DBRLogAdminLogin(self, request: DBRLogAdminLogin):
+        self.log_admin_login(request.username)
+        request.conn.send(RequestResponse.ADMIN_LOGIN_LOGGED_SUCCESSFULLY)
+        request.conn.close()
+
+
+
+
 
 
 
