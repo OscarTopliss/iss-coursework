@@ -363,7 +363,7 @@ class Server:
 
 
 
-                database_queue = Queue
+                database_queue = Queue()
                 database_worker = Process(
                     target = Database.start_database,
                     args = (database_queue,)

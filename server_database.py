@@ -181,9 +181,9 @@ class Database():
 
     @staticmethod
     def start_database(queue: Queue):
-        database = Database(queue)
+        database = Database(queue = queue)
         while True:
-            request = queue.get()
+            request = database.queue.get()
             database.handle_request(request)
 
 
