@@ -16,9 +16,10 @@
 ## Imports
 # Database stuff
 import sqlalchemy as sql
-from sqlalchemy import String
+from sqlalchemy import String, Select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
+from sqlalchemy import Enum as sqlEnum
 
 from typing import List
 from typing import Optional
@@ -26,6 +27,8 @@ from typing import Optional
 from multiprocessing.connection import Connection
 # Cryptography stuff
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+# HSM stuff
+import server_HSM
 import os
 ## misc
 from enum import Enum
@@ -33,6 +36,19 @@ from uuid import uuid4 as uuid
 
 
 
+
+class UserType(Enum):
+    CLIENT = 0
+    FINANCIAL_ADVISOR = 1
+    SYSTEM_ADMINISTRATOR = 2
+
+# Enum for the response of success/fail requests. Passed through to the
+# requesting worker process via a pipe.
+class RequestResponse(Enum):
+    USER_EXISTS = 0
+    USER_DOESNT_EXIST = 1
+    CREATE_USER_SUCCESSFUL = 2
+    CREATE_USER_USER_EXISTS = 3
 
 
 class Database():
@@ -44,10 +60,16 @@ class Database():
 
         id: Mapped[int] = mapped_column(primary_key = True)
         username: Mapped[str] = mapped_column(String(60), unique=True)
+        user_type: Mapped[UserType] = mapped_column(sqlEnum)
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)
 
-    def create_new_user(self, username: str, password: str, pepper: bytes):
+    def create_new_user(self,
+        username: str,
+        user_type: UserType,
+        password: str,
+        pepper: bytes
+    ):
         salt = os.urandom(16)
         # Using the standard recommended parameters as shown here:
         # https://datatracker.ietf.org/doc/html/rfc9106#section-4
@@ -75,26 +97,72 @@ class Database():
             session.add(new_user)
             session.commit()
 
+    def check_if_user_exists(self, username: str):
+        with Session(self.engine) as session:
+            users = Select(self.User)\
+            .where(self.User.username.in_([request.username]))
+            if len(session.scalars(users).all()) >= 1:
+                return True
+            return False
+
+
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
     # Database requests are named in the format DBRRequestName.
 
-    # It's the responsibility of the database process to check if a request is
-    # valid (i.e., not creating a new user with the same username as another)
+    # Each DBR class is associated with a handler method in the parent Database
+    # class, which enables access to the engine for querying data.
 
-    # It's the responsibilty of the **socket** process to send valid data, i.e.
-    # the correct data type, as taken from the user.
+    # It's the responsibility of the database process to check the validity of
+    # the **request**, i.e., checking if a user exists before creating a new
+    # user.
 
-    # The base class, accepts
+    # It's the responsibility of the socket process to check the validity of the
+    # **data**, i.e. checking that the username is 60 characters or fewer.
+
+    # The base class for database requests. accepts a **connection** object,
+    # which greatly simplifies passing the result of the request back to the
+    # worker process which made it.
     class DatabaseRequest():
         def __init__(self, process_conn: Connection):
             self.conn = process_conn
 
 
-    class DBRUserExists(DatabaseRequest):
+    class DBRDoesUserExist(DatabaseRequest):
         def __init__(self, process_conn: Connection, username: str):
-            with Session(self.engine) as session:
+            super().__init__(process_conn)
+            self.username = username
+
+    def handle_DBRDoesUserExist(self, request: DBRDoesUserExist):
+        self.check_if_user_exists(request.username)
+
+    class DBRCreateNewUser(DatabaseRequest):
+        def __init__(self,
+            process_conn: Connection,
+            username: str,
+            user_type: UserType,
+            password: str):
+                super().__init__(process_conn)
+                self.username = username
+                self.user_type = user_type
+                self.password = password
+
+    def handle_DBRCreateNewUser(self, request: DBRCreateNewUser):
+        if self.check_if_user_exists(request.username) == False:
+            request.conn.send(RequestResponse.CREATE_USER_USER_EXISTS)
+            request.conn.close()
+            return
+        self.create_new_user(
+            username = request.username,
+            user_type = request.user_type,
+            password = request.password,
+            pepper = server_HSM.get_pepper()
+        )
+        request.conn.send(RequestResponse.CREATE_USER_SUCCESSFUL)
+        request.conn.close()
+
+
 
 
 
