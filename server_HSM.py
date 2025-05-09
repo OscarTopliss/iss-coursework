@@ -64,9 +64,11 @@ def encrypt_aes(plaintext: bytes) -> bytes:
 
 # Decrypts and verifies a value.
 def decrypt_and_verify_aes(ciphertext: bytes) -> bytes:
-    key_index = int.from_bytes(ciphertext[0:4], "big")
-    nonce = ciphertext[4:28]
-    data_with_tag = ciphertext[28:]
+    key_index = int.from_bytes(ciphertext[:2], "big")
+    print(f"key_index_bytes: {ciphertext[:2]}")
+    print(f"key_index {key_index}")
+    nonce = ciphertext[2:14]
+    data_with_tag = ciphertext[14:]
     with open("./HSM-server/secrets.json", "r") as secrets_file:
         secrets = json.load(secrets_file)
         aes_keys = secrets["aes-keys"]
@@ -91,5 +93,22 @@ def re_encrypt_aes(ciphertext: bytes) -> bytes:
     new_ciphertext = encrypt_aes(plaintext)
     return new_ciphertext
 
-if __name__ == "__main__":
+def test_encryption_methods():
     generate_aes_key()
+    data = b"test"
+    print(f"original data: {data!r}")
+    encrypted_data = encrypt_aes(data)
+    print(f"Encrypted data: {str(encrypted_data.hex())}")
+    decrypted_data = decrypt_and_verify_aes(encrypted_data)
+    print(f"Decrypted data: {decrypted_data!r}")
+    generate_aes_key()
+    decrypted_data = decrypt_and_verify_aes(encrypted_data)
+    print(f"Decrypting data with old key after key rotation:{decrypted_data!r}")
+    re_encrypted_data = re_encrypt_aes(encrypted_data)
+    print(f"re-encrypted data:{str(re_encrypted_data.hex())}")
+    decrypted_data = decrypt_and_verify_aes(re_encrypted_data)
+    print(f"Final decrypted data:{decrypted_data!r}")
+
+
+if __name__ == "__main__":
+    test_encryption_methods()
