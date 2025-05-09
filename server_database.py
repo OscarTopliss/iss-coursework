@@ -16,8 +16,10 @@
 ## Imports
 # Database stuff
 import sqlalchemy as sql
-from sqlalchemy import String, Select, Time, Date, Float, BigInteger
+from sqlalchemy import String, Select, Time, Date, Float, BigInteger,\
+ForeignKey, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.sqltypes import LargeBinary
 from sqlalchemy import Enum as SQLEnum
 
@@ -61,6 +63,8 @@ class RequestResponse(Enum):
     USER_TYPE_VALID = 9
     USER_TYPE_INVALID = 10
     USER_EMAIL_SET = 11
+    COMPANY_CODE_VALID = 12
+    COMPANY_CODE_INVALID = 13
 
 # Types of admin action. This is for the admin actions logging table.
 class AdminAction(Enum):
@@ -315,7 +319,6 @@ class Database():
         company_code: Mapped[str] = mapped_column(String(4), primary_key = True)
         company_name: Mapped[str] = mapped_column(String(100), unique=True)
         share_price: Mapped[float] = mapped_column(Float)
-        shares_remaining: Mapped[int] = mapped_column(BigInteger)
 
     def get_companies_string(self) -> str:
         table = PrettyTable(
@@ -347,17 +350,77 @@ class Database():
         company_code: str,
         company_name: str,
         share_price: float,
-        shares: int
     ):
         with Session(self.engine) as session:
             company = self.Company(
                 company_code = company_code,
                 company_name = company_name,
                 share_price = share_price,
-                shares_remaining = shares
             )
             session.add(company)
             session.commit()
+
+    def check_if_company_code_valid(
+        self,
+        company_code : str
+    ):
+        with Session(self.engine) as session:
+            companies = session.execute(Select(self.Company))
+            for company in companies.scalars():
+                if company.company_code == company_code:
+                    return True
+        return False
+
+    # There's some information leakage here, but the quantity of the investment
+    # isn't stored in plain text.
+    class ClientInvestments(Base):
+        __tablename__ = "client_investments"
+
+        username: Mapped[str] = mapped_column(
+            ForeignKey("users.username"),
+            primary_key = True)
+        company_code: Mapped[str] = mapped_column(
+            ForeignKey("companies.company_code"),
+            primary_key = True
+        )
+        held_shares: Mapped[bytes] = mapped_column(
+            LargeBinary
+        )
+
+    def buy_shares(
+        self,
+        username: str,
+        company_code: str,
+        shares: int
+    ):
+        with Session(self.engine) as session:
+            try:
+                investment = session.scalars(
+                    select(self.ClientInvestments)
+                    .where(self.ClientInvestments.username.in_([username]))
+                    .where(self.ClientInvestments.company_code.in_([company_code]))
+                ).one()
+            except NoResultFound:
+                new_investment = self.ClientInvestments(
+                    username = username,
+                    company_code = company_code,
+                    held_shares = server_HSM.encrypt_aes(shares.to_bytes())
+                )
+                session.add(new_investment)
+                session.commit()
+            else:
+                current_shares = server_HSM\
+                .decrypt_and_verify_aes(investment.held_shares)
+                new_shares = int.from_bytes(current_shares, "big") + shares
+                investment.held_shares = server_HSM\
+                .encrypt_aes(new_shares.to_bytes())
+                session.commit()
+
+
+
+
+
+
 
 
     ## Database Request and response classes
@@ -584,6 +647,22 @@ class Database():
         request.conn.send(self.get_companies_string())
         request.conn.close()
 
+    class DBRCheckCompanyCodeValid(DatabaseRequest):
+        def __init__(self, process_conn : Connection, company_code : str):
+            super().__init__(process_conn)
+            self.company_code = company_code
+
+    def handle_DBRCheckCompanyCodeValid(
+        self,
+        request: DBRCheckCompanyCodeValid
+    ):
+        if self.check_if_company_code_valid(request.company_code):
+            request.conn.send(RequestResponse.COMPANY_CODE_VALID)
+        else:
+            request.conn.send(RequestResponse.COMPANY_CODE_INVALID)
+        request.conn.close()
+
+
 
     def handle_request(self, request: DatabaseRequest):
         if isinstance(request, self.DBRDoesUserExist):
@@ -616,6 +695,9 @@ class Database():
         if isinstance(request, self.DBRGetCompanyString):
             self.handle_DBRGetCompanyString(request)
             return
+        if isinstance(request, self.DBRCheckCompanyCodeValid):
+            self.handle_DBRCheckCompanyCodeValid(request)
+            return
 
     # A method to populate the database with initial data.
     def populate_database(self):
@@ -642,13 +724,11 @@ class Database():
                 company_code = "WMG",
                 company_name = "Warwick Manufacturing Group",
                 share_price = 20.10,
-                shares = 100
             )
             self.add_company(
                 company_code = "HRJ",
                 company_name = "Harj Enterprises Inc.",
                 share_price = 120.12,
-                shares = 1000
             )
             print('Done.')
 

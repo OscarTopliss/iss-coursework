@@ -125,9 +125,6 @@ class ClientSession:
         BUY_SHARES_COMPANY_CODE = 26
         BUY_SHARES_QUANTITY = 27
         BUY_SHARES_SUCCESS = 28
-        SELL_SHARES_COMPANY_CODE = 29
-        SELL_SHARES_QUANTITY = 30
-        SELL_SHARES_SUCCESS = 31
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -150,6 +147,7 @@ class ClientSession:
         USER_DOESNT_EXIST = 9
         USER_NOT_ADMIN = 10
         INVALID_EMAIL_ADDRESS = 11
+        INVALID_COMPANY_CODE = 12
         pass
 
 
@@ -649,15 +647,33 @@ class ClientSession:
                 self.session_state = self.SessionState.BUY_SHARES_COMPANY_CODE
                 return True
 
-            if response == "4":
-                self.session_state = self.SessionState.SELL_SHARES_COMPANY_CODE
-                return True
 
             self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
             return True
 
         if self.session_state == self.SessionState.VIEW_COMPANIES:
             self.return_to_client_menu()
+
+        if self.session_state == self.SessionState.BUY_SHARES_COMPANY_CODE:
+            if response.upper() == "M":
+                self.return_to_client_menu()
+                return True
+            socket_conn, db_conn = Pipe()
+            request = DBRCheckCompanyCodeValid(
+                process_conn = db_conn,
+                company_code = response
+            )
+            self.database_queue.put(request)
+            request_response = socket_conn.recv()
+            if request_response == RequestResponse.COMPANY_CODE_INVALID:
+                self.error_message = self.ErrorMessage.INVALID_COMPANY_CODE
+                return True
+            self.request_args["company_code"] = response
+            self.session_state = self.SessionState.BUY_SHARES_QUANTITY
+        return True
+
+
+
 
 
 
@@ -760,7 +776,7 @@ class ClientSession:
                 '1 View Portfolio\n'
                 '2 View Companies and share prices\n'
                 '3 Buy Shares\n'
-                '4 Sell Shares\n'
+                '4 View Messages\n'
                 'M Main Menu\n'
                 'Q Quit'
             )
@@ -770,6 +786,15 @@ class ClientSession:
                 '## Companies ##'
                 f'{self.request_args["company_string"]}\n'
                 '<Enter> Return to Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.BUY_SHARES_COMPANY_CODE:
+            return (
+                '## Buy Shares ##\n'
+                'Enter the code for the company you wish\n'
+                'to buy shares in:\n'
+                'M Main Menu\n'
                 'Q Quit'
             )
 
@@ -934,6 +959,12 @@ class ClientSession:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Invalid email address.'
+            )
+
+        if self.error_message == self.ErrorMessage.INVALID_COMPANY_CODE:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Invalid Company Code.'
             )
 
         return self.reset_error('#! Invalid Input !#')
