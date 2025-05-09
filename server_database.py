@@ -58,6 +58,8 @@ class RequestResponse(Enum):
     USER_CREDENTIALS_VALID_ADMIN = 6
     USER_CREDENTIALS_INVALID = 7
     ADMIN_LOGIN_LOGGED_SUCCESSFULLY = 8
+    USER_TYPE_VALID = 9
+    USER_TYPE_INVALID = 10
 
 # Types of admin action. This is for the admin actions logging table.
 class AdminAction(Enum):
@@ -223,7 +225,10 @@ class Database():
             session.add(log)
             session.commit()
 
-    def get_all_admin_logs_string(self):
+    def get_admin_logs_string(
+        self,
+        admin : str = ""
+    ):
         with Session(self.engine) as session:
             logs = session.execute(Select(self.AdminLog))
 
@@ -237,18 +242,34 @@ class Database():
                     "TARGET USER"
                 ]
             )
-            for log in logs.scalars():
-                table.add_row(
-                    [
-                    str(log.action_id),
-                    # So that it's not prefixed with AdminAction.
-                    str(log.action_type).split(".")[1],
-                    str(log.action_date),
-                    str(log.action_time),
-                    log.admin_username,
-                    log.target_user
-                    ]
-                )
+            if admin == "":
+                for log in logs.scalars():
+                    table.add_row(
+                        [
+                        str(log.action_id),
+                        # So that it's not prefixed with AdminAction.
+                        str(log.action_type).split(".")[1],
+                        str(log.action_date),
+                        str(log.action_time),
+                        log.admin_username,
+                        log.target_user
+                        ]
+                    )
+            else:
+                for log in logs.scalars():
+                    if log.admin_username == admin:
+                        table.add_row(
+                            [
+                            str(log.action_id),
+                            # So that it's not prefixed with AdminAction.
+                            str(log.action_type).split(".")[1],
+                            str(log.action_date),
+                            str(log.action_time),
+                            log.admin_username,
+                            log.target_user
+                            ]
+                        )
+
 
             return(table.get_string())
 
@@ -394,12 +415,47 @@ class Database():
     # it needs to be able to send data, not just status, back to the socket
     # process.
     def handle_DBRGetAllAdminLogs(self, request:DBRGetAllAdminLogs):
-        string = self.get_all_admin_logs_string()
+        string = self.get_admin_logs_string()
+        request.conn.send(string)
+        request.conn.close()
+
+    class DBRGetLogsByAdmin(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            admin_name: str
+        ):
+            super().__init__(process_conn)
+            self.admin_name = admin_name
+
+    def handle_DBRGetLogsByAdmin(self, request : DBRGetLogsByAdmin):
+        string = self.get_admin_logs_string(request.admin_name)
         request.conn.send(string)
         request.conn.close()
 
 
+    class DBRCheckUserType(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            username: str,
+            user_type: UserType
+        ):
+            super().__init__(process_conn)
+            self.username = username
+            self.user_type = user_type
+
+    def handle_DBRCheckUserType(self, request: DBRCheckUserType):
+        if self.get_user_type(request.username) != request.user_type:
+            request.conn.send(RequestResponse.USER_TYPE_INVALID)
+        else:
+            request.conn.send(RequestResponse.USER_TYPE_VALID)
+        request.conn.close()
+
+
+
     def handle_request(self, request: DatabaseRequest):
+        print("REQUEST RECEIVED")
         if isinstance(request, self.DBRDoesUserExist):
             self.handle_DBRDoesUserExist(request)
             return
@@ -408,10 +464,19 @@ class Database():
             return
         if isinstance(request, self.DBRCheckUserCredentials):
             self.handle_DBRCheckUserCredentials(request)
+            return
         if isinstance(request, self.DBRLogAdminLogin):
             self.handle_DBRLogAdminLogin(request)
+            return
         if isinstance(request, self.DBRGetAllAdminLogs):
             self.handle_DBRGetAllAdminLogs(request)
+            return
+        if isinstance(request, self.DBRCheckUserType):
+            self.handle_DBRCheckUserType(request)
+            return
+        if isinstance(request, self.DBRGetLogsByAdmin):
+            self.handle_DBRGetLogsByAdmin(request)
+            return
 
     # A method to populate the database with initial data.
     def populate_database(self):

@@ -114,6 +114,7 @@ class ClientSession:
         ADMIN_LOG_MENU = 15
         ADMIN_VIEW_ALL_LOGS = 16
         ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME = 17
+        ADMIN_VIEW_LOGS_BY_ADMIN_RESULT = 18
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -133,6 +134,8 @@ class ClientSession:
         NEW_USER_PASSWORD_TOO_SHORT = 6
         NO_USERNAME_GIVEN = 7
         INVALID_CREDENTIALS = 8
+        USER_DOESNT_EXIST = 9
+        USER_NOT_ADMIN = 10
         pass
 
 
@@ -492,6 +495,61 @@ class ClientSession:
             self.return_to_admin_menu()
             return True
 
+        if self.session_state == self.SessionState.\
+        ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME:
+            if response.upper() == "M":
+                self.return_to_admin_menu()
+                return True
+            if len(response) == 0:
+                self.error_message == self.ErrorMessage.NO_USERNAME_GIVEN
+                return True
+            if len(response) >= 60:
+                self.error_message == self.ErrorMessage.NEW_USER_NAME_TOO_LONG
+                return True
+            socket_conn, db_conn = Pipe()
+            request = Database.DBRDoesUserExist(
+                process_conn = db_conn,
+                username = response
+            )
+            self.database_queue.put(request)
+            request_response = socket_conn.recv()
+            if request_response == RequestResponse.USER_DOESNT_EXIST:
+                self.error_message = self.ErrorMessage.USER_DOESNT_EXIST
+                return True
+            socket_conn, db_conn = Pipe()
+            print("gets to here")
+            request = Database.DBRCheckUserType(
+                process_conn = db_conn,
+                username = response,
+                user_type = DBUserType.SYSTEM_ADMINISTRATOR
+            )
+            print("and to here")
+            self.database_queue.put(request)
+            request_response = socket_conn.recv()
+
+            if request_response == RequestResponse.USER_TYPE_INVALID:
+                self.error_message = self.ErrorMessage.USER_NOT_ADMIN
+                return True
+
+            socket_conn, db_conn = Pipe()
+            request = Database.DBRGetLogsByAdmin(
+                process_conn = db_conn,
+                admin_name = response
+            )
+
+            self.database_queue.put(request)
+            self.request_args["log_string"] = socket_conn.recv()
+            socket_conn.close()
+            self.session_state = self.SessionState.\
+            ADMIN_VIEW_LOGS_BY_ADMIN_RESULT
+            return True
+
+        if self.session_state == self.SessionState.\
+        ADMIN_VIEW_LOGS_BY_ADMIN_RESULT:
+            self.return_to_admin_menu()
+            return True
+
+
 
         return True
 
@@ -594,6 +652,15 @@ class ClientSession:
                 'M Main Menu\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.\
+        ADMIN_VIEW_LOGS_BY_ADMIN_RESULT:
+            return (
+                '## Administrator - View Logs For One Admin\n'
+                f'{self.request_args["log_string"]}\n'
+                '<Enter> Return to Main Menu\n'
+                'Q Quit'
+            )
+
         if self.session_state == self.SessionState.ADMIN_NEW_USER_TYPE:
             return (
                 '## Administrator - Create User ##\n'
@@ -692,6 +759,16 @@ class ClientSession:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Username or password were incorrect.'
+            )
+        if self.error_message == self.ErrorMessage.USER_DOESNT_EXIST:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'No user exists with that username.'
+            )
+        if self.error_message == self.ErrorMessage.USER_NOT_ADMIN:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'That user is not an admin.'
             )
 
         return self.reset_error('#! Invalid Input !#')
