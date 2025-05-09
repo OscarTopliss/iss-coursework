@@ -367,7 +367,6 @@ class ClientSession:
                 return True
 
         if self.session_state == self.SessionState.CREATE_USER_SUCCESSFUL:
-            print("This should be running")
             self.return_to_client_menu()
             return True
 
@@ -556,33 +555,29 @@ class ClientSession:
             self.return_to_admin_menu()
             return True
 
-
-
-        return True
-
-
         ######################### CLIENT METHODS ###############################
         if self.session_state == self.SessionState.CLIENT_MENU:
+            print("got to here 1")
             if response == "1":
-                print("should be working")
+                print("got to here 2")
                 self.session_state = self.SessionState.ACCOUNT_DETAILS_MENU
                 return True
 
         if self.session_state == self.SessionState.ACCOUNT_DETAILS_MENU:
+            print("account details menu")
             if response.upper() == "M":
                 self.return_to_client_menu()
                 return True
             if response == "1":
                 self.session_state = self.SessionState.VIEW_ACCOUNT_DETAILS
                 process_conn, db_conn = Pipe()
-                request = DBRGetClientAccountDetails(
+                request = Database.DBRGetClientAccountDetails(
                     process_conn = db_conn,
                     username = self.username,
                 )
                 self.database_queue.put(request)
                 self.request_args["account_details"] = process_conn.recv()
                 process_conn.close()
-
                 return True
             if response == "2":
                 self.session_state = self.SessionState.SET_EMAIL_ADDRESS
