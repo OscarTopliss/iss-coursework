@@ -354,12 +354,10 @@ class ClientSession:
             request_response = socket_conn.recv()
             socket_conn.close()
 
-            return True
-
             if request_response == RequestResponse.CREATE_USER_SUCCESSFUL:
-                self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
                 self.username = self.request_args["username"]
                 self.user_type = self.UserType.CLIENT
+                self.session_state = self.SessionState.CREATE_USER_SUCCESSFUL
                 self.request_args = {}
                 return True
             if request_response == RequestResponse.CREATE_USER_USER_EXISTS:
@@ -369,8 +367,9 @@ class ClientSession:
                 return True
 
         if self.session_state == self.SessionState.CREATE_USER_SUCCESSFUL:
-            self.session_state = self.SessionState.CLIENT_MENU
-
+            print("This should be running")
+            self.return_to_client_menu()
+            return True
 
         ############### ADMIN METHODS ##########################################
 
