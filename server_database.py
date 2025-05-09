@@ -60,6 +60,7 @@ class RequestResponse(Enum):
     ADMIN_LOGIN_LOGGED_SUCCESSFULLY = 8
     USER_TYPE_VALID = 9
     USER_TYPE_INVALID = 10
+    USER_EMAIL_SET = 11
 
 # Types of admin action. This is for the admin actions logging table.
 class AdminAction(Enum):
@@ -191,13 +192,30 @@ class Database():
                 ]
             )
             for user in users.scalars():
-                table.add_row(
-                    [
-                        user.username,
-                        user.email
-                    ]
-                )
+                if user.email == None:
+                    table.add_row(
+                        [
+                            user.username,
+                            user.email
+                        ]
+                    )
+                else:
+                    table.add_row(
+                        [
+                            user.username,
+                            server_HSM.decrypt_and_verify_aes(user.email)\
+                            .decode()
+                        ]
+                    )
             return table.get_string()
+
+    def set_user_email(self, username: str, email: str):
+        with Session(self.engine) as session:
+            user = session.execute(Select(self.User)\
+                .filter_by(username=username)\
+                ).scalar_one()
+            user.email = server_HSM.encrypt_aes(email.encode())
+            session.flush()
 
     class AdminLog(Base):
         __tablename__ = "admin_log"
@@ -499,7 +517,25 @@ class Database():
         ))
         request.conn.close()
 
+    class DBRSetClientEmail(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            username: str,
+            email: str
+        ):
+            super().__init__(process_conn)
+            self.username = username
+            self.email = email
 
+    def handle_DBRSetClientEmail(self, request: DBRSetClientEmail):
+        self.set_user_email(
+            username = request.username,
+            email = request.email
+        )
+        request.conn.send(RequestResponse.USER_EMAIL_SET)
+        request.conn.close()
+        return
 
 
     def handle_request(self, request: DatabaseRequest):
@@ -527,6 +563,9 @@ class Database():
         if isinstance(request, self.DBRGetClientAccountDetails):
             self.handle_DBRGetClientAccountDetails(request)
             return
+        if isinstance(request, self.DBRSetClientEmail):
+            self.handle_DBRSetClientEmail(request)
+            return
 
     # A method to populate the database with initial data.
     def populate_database(self):
@@ -541,6 +580,12 @@ class Database():
                 username = "test_adv",
                 user_type = UserType.FINANCIAL_ADVISOR,
                 password = "advisor123",
+                pepper = server_HSM.get_pepper()
+            )
+            self.create_new_user(
+                username = "dave",
+                user_type = UserType.CLIENT,
+                password = "daveiscool",
                 pepper = server_HSM.get_pepper()
             )
             print('Done.')

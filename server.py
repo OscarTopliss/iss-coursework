@@ -140,6 +140,7 @@ class ClientSession:
         INVALID_CREDENTIALS = 8
         USER_DOESNT_EXIST = 9
         USER_NOT_ADMIN = 10
+        INVALID_EMAIL_ADDRESS = 11
         pass
 
 
@@ -557,11 +558,11 @@ class ClientSession:
 
         ######################### CLIENT METHODS ###############################
         if self.session_state == self.SessionState.CLIENT_MENU:
-            print("got to here 1")
             if response == "1":
-                print("got to here 2")
                 self.session_state = self.SessionState.ACCOUNT_DETAILS_MENU
                 return True
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
 
         if self.session_state == self.SessionState.ACCOUNT_DETAILS_MENU:
             print("account details menu")
@@ -589,6 +590,34 @@ class ClientSession:
         if self.session_state == self.SessionState.VIEW_ACCOUNT_DETAILS:
             self.return_to_client_menu()
             return True
+
+        # The email checking is very bare here, it just checks for an @
+        # symbol and no spaces.
+        if self.session_state == self.SessionState.SET_EMAIL_ADDRESS:
+            if response.upper() == "M":
+                self.return_to_client_menu()
+                return True
+            if len(response) < 3:
+                self.error_message = self.ErrorMessage.INVALID_EMAIL_ADDRESS
+                return True
+            if not "@" in response:
+                self.error_message = self.ErrorMessage.INVALID_EMAIL_ADDRESS
+                return True
+
+            process_conn, db_conn = Pipe()
+            request = Database.DBRSetClientEmail(
+                process_conn = db_conn,
+                username = self.username,
+                email = response
+            )
+
+            self.database_queue.put(request)
+            process_conn.recv()
+            self.return_to_client_menu()
+            return True
+
+
+
 
 
 
@@ -670,6 +699,14 @@ class ClientSession:
                 '## View Account Details ##\n'
                 f'{self.request_args["account_details"]}\n'
                 '<Enter> Return to Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.SET_EMAIL_ADDRESS:
+            return (
+                '## Set Email Address ##\n'
+                'Please enter your email address:\n'
+                'M Main menu\n'
                 'Q Quit'
             )
 
@@ -828,6 +865,12 @@ class ClientSession:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'That user is not an admin.'
+            )
+
+        if self.error_message == self.ErrorMessage.INVALID_EMAIL_ADDRESS:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Invalid email address.'
             )
 
         return self.reset_error('#! Invalid Input !#')
