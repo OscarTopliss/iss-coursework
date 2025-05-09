@@ -148,7 +148,7 @@ class ClientSession:
         USER_NOT_ADMIN = 10
         INVALID_EMAIL_ADDRESS = 11
         INVALID_COMPANY_CODE = 12
-        pass
+        NOT_POSITIVE_INTEGER = 13
 
 
 
@@ -631,6 +631,15 @@ class ClientSession:
                 return True
             if response == "1":
                 self.session_state = self.SessionState.VIEW_PORTFOLIO
+                socket_conn, db_conn = Pipe()
+                request = Database.DBRGetPortfolio(
+                    process_conn = db_conn,
+                    username = self.username
+                )
+                self.database_queue.put(request)
+
+                self.request_args["portfolio_string"] = socket_conn.recv()
+                socket_conn.close()
                 return True
             if response == "2":
                 self.session_state = self.SessionState.VIEW_COMPANIES
@@ -670,7 +679,49 @@ class ClientSession:
                 return True
             self.request_args["company_code"] = response
             self.session_state = self.SessionState.BUY_SHARES_QUANTITY
+            return True
+
+        if self.session_state == self.SessionState.BUY_SHARES_QUANTITY:
+            if response.upper() == "M":
+                self.return_to_client_menu()
+                return True
+            if len(response) == 0:
+                self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+                self.session_state = self.SessionState.BUY_SHARES_COMPANY_CODE
+                return True
+            try:
+                int(response)
+            except ValueError:
+                self.error_message = self.ErrorMessage.NOT_POSITIVE_INTEGER
+                self.session_state = self.SessionState.BUY_SHARES_COMPANY_CODE
+                return True
+            else:
+                shares_to_buy = int(response)
+                self.request_args
+                socket_conn, db_conn = Pipe()
+                request = Database.DBRBuyShares(
+                    db_conn,
+                    self.username,
+                    self.request_args["company_code"],
+                    shares_to_buy
+                )
+                self.database_queue.put(request)
+                self.request_args["owned_shares"] = socket_conn.recv()
+                self.session_state = self.SessionState.BUY_SHARES_SUCCESS
+                return True
+
+
+        if self.session_state == self.SessionState.BUY_SHARES_SUCCESS:
+            self.return_to_client_menu()
+            return True
+
+        if self.session_state == self.SessionState.VIEW_PORTFOLIO:
+            self.return_to_client_menu()
+            return True
+
         return True
+
+
 
 
 
@@ -783,7 +834,7 @@ class ClientSession:
 
         if self.session_state == self.SessionState.VIEW_COMPANIES:
             return (
-                '## Companies ##'
+                '## Companies ##\n'
                 f'{self.request_args["company_string"]}\n'
                 '<Enter> Return to Main Menu\n'
                 'Q Quit'
@@ -795,6 +846,33 @@ class ClientSession:
                 'Enter the code for the company you wish\n'
                 'to buy shares in:\n'
                 'M Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.BUY_SHARES_QUANTITY:
+            return (
+                '## Buy Shares ##\n'
+                'Enter the number of shares in '
+                f'{self.request_args["company_code"]}\n'
+                'You would like to buy.\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.BUY_SHARES_SUCCESS:
+            return (
+                '## Buy Shares - Success ##\n'
+                f'You now own {self.request_args["owned_shares"]} shares in '
+                f'{self.request_args["company_code"]}\n'
+                '<Enter> Return to Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.VIEW_PORTFOLIO:
+            return (
+                '## View Portfolio ##\n'
+                f'{self.request_args["portfolio_string"]}\n'
+                '<Enter> Return to Main Menu\n'
                 'Q Quit'
             )
 
@@ -965,6 +1043,11 @@ class ClientSession:
             return self.reset_error(
                 '#! Invalid Input !#\n'
                 'Invalid Company Code.'
+            )
+        if self.error_message == self.ErrorMessage.NOT_POSITIVE_INTEGER:
+            return self.reset_error(
+                '#! Invalid Input !#\n'
+                'Not a positive integer.'
             )
 
         return self.reset_error('#! Invalid Input !#')

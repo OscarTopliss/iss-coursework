@@ -65,6 +65,7 @@ class RequestResponse(Enum):
     USER_EMAIL_SET = 11
     COMPANY_CODE_VALID = 12
     COMPANY_CODE_INVALID = 13
+    BUY_SHARES_SUCCESS = 14
 
 # Types of admin action. This is for the admin actions logging table.
 class AdminAction(Enum):
@@ -402,17 +403,47 @@ class Database():
                 new_investment = self.ClientInvestments(
                     username = username,
                     company_code = company_code,
-                    held_shares = server_HSM.encrypt_aes(shares.to_bytes())
+                    held_shares = server_HSM.encrypt_aes(shares.to_bytes(10,
+                        "big"))
                 )
                 session.add(new_investment)
                 session.commit()
+                return shares
             else:
                 current_shares = server_HSM\
                 .decrypt_and_verify_aes(investment.held_shares)
                 new_shares = int.from_bytes(current_shares, "big") + shares
                 investment.held_shares = server_HSM\
-                .encrypt_aes(new_shares.to_bytes())
+                .encrypt_aes(new_shares.to_bytes(10, "big"))
                 session.commit()
+                return new_shares
+
+    def get_portfolio_string(self, username : str):
+        with Session(self.engine) as session:
+            investments = session.execute(Select(self.ClientInvestments)\
+                .where(self.ClientInvestments.username.in_([username])))
+
+            table = PrettyTable(
+                [
+                    "SHARES",
+                    "COMPANY",
+                ]
+            )
+
+            for investment in investments.scalars():
+                table.add_row(
+                    [
+                        int.from_bytes(
+                            server_HSM.decrypt_and_verify_aes(
+                                investment.held_shares
+                            )
+                        ),
+                        investment.company_code
+                    ]
+                )
+            return table.get_string()
+
+
 
 
 
@@ -660,6 +691,44 @@ class Database():
             request.conn.send(RequestResponse.COMPANY_CODE_INVALID)
         request.conn.close()
 
+    class DBRBuyShares(DatabaseRequest):
+        def __init__(self, process_conn: Connection,
+            username : str,
+            company_code: str,
+            shares: int
+            ):
+                super().__init__(process_conn)
+                self.username = username
+                self.company_code = company_code
+                self.shares = shares
+
+    def handle_DBRBuyShares(self, request: DBRBuyShares):
+        owned_shares = self.buy_shares(
+            request.username,
+            request.company_code,
+            request.shares
+        )
+        request.conn.send(owned_shares)
+        request.conn.close()
+
+    class DBRGetPortfolio(DatabaseRequest):
+        def __init__(self, process_conn: Connection, username: str):
+            super().__init__(process_conn)
+            self.username = username
+
+    def handle_DBRGetPortfolio(self, request: DBRGetPortfolio):
+        request.conn.send(
+            self.get_portfolio_string(
+                request.username
+            )
+        )
+        request.conn.close()
+
+
+
+
+
+
 
 
     def handle_request(self, request: DatabaseRequest):
@@ -695,6 +764,12 @@ class Database():
             return
         if isinstance(request, self.DBRCheckCompanyCodeValid):
             self.handle_DBRCheckCompanyCodeValid(request)
+            return
+        if isinstance(request, self.DBRBuyShares):
+            self.handle_DBRBuyShares(request)
+            return
+        if isinstance(request, self.DBRGetPortfolio):
+            self.handle_DBRGetPortfolio(request)
             return
 
     # A method to populate the database with initial data.
