@@ -16,7 +16,7 @@
 ## Imports
 # Database stuff
 import sqlalchemy as sql
-from sqlalchemy import String, Select, Time, Date
+from sqlalchemy import String, Select, Time, Date, Float, BigInteger
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql.sqltypes import LargeBinary
 from sqlalchemy import Enum as SQLEnum
@@ -273,10 +273,13 @@ class Database():
 
             return(table.get_string())
 
+    class Company(Base):
+        __tablename__ = "companies"
 
-
-
-
+        company_code: Mapped[str] = mapped_column(String(4), primary_key = True)
+        company_name: Mapped[str] = mapped_column(String(100), unique=True)
+        share_price: Mapped[float] = mapped_column(Float)
+        shares_remaining: Mapped[int] = mapped_column(BigInteger)
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
