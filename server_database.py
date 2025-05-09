@@ -78,6 +78,7 @@ class Database():
 
         id: Mapped[int] = mapped_column(primary_key = True)
         username: Mapped[str] = mapped_column(String(60), unique=True)
+        email: Mapped[Optional[bytes]] = mapped_column(LargeBinary)
         user_type: Mapped[UserType] = mapped_column(SQLEnum(UserType))
         password: Mapped[bytes]  = mapped_column(LargeBinary)
         password_salt: Mapped[bytes] = mapped_column(LargeBinary)

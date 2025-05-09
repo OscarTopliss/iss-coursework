@@ -115,6 +115,10 @@ class ClientSession:
         ADMIN_VIEW_ALL_LOGS = 16
         ADMIN_VIEW_LOGS_BY_ADMIN_USERNAME = 17
         ADMIN_VIEW_LOGS_BY_ADMIN_RESULT = 18
+        ACCOUNT_DETAILS_MENU = 19
+        VIEW_ACCOUNT_DETAILS = 20
+        SET_EMAIL_ADDRESS = 21
+        CHANGE_PASSWORD = 22
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -185,6 +189,10 @@ class ClientSession:
     def return_to_admin_menu(self):
         self.request_args = {}
         self.session_state = self.SessionState.ADMIN_MENU
+
+    def return_to_client_menu(self):
+        self.request_args = {}
+        self.session_state = self.SessionState.CLIENT_MENU
 
     def handle_client_response(self,
         message: tuple[bytes, MessageCode]) -> bool:
@@ -554,6 +562,26 @@ class ClientSession:
         return True
 
 
+        ######################### CLIENT METHODS ###############################
+        if self.session_state == self.SessionState.CLIENT_MENU:
+            if response == "1":
+                self.session_state = self.SessionState.ACCOUNT_DETAILS_MENU
+                return True
+
+        if self.session_state == self.SessionState.ACCOUNT_DETAILS_MENU:
+            if response.upper() == "M":
+                self.return_to_client_menu()
+                return True
+            if response == "1":
+                self.session_state = self.SessionState.VIEW_ACCOUNT_DETAILS
+            if response == "2":
+                self.session_state = self.SessionState.SET_EMAIL_ADDRESS
+            if response == "3":
+                self.session_state = self.SessionState.CHANGE_PASSWORD
+
+
+
+
     # Finds the message to send to the client program based on the status of
     # self.sessionState, which references the SessionState enum.
     ######################### UNAUTHENTICATED STUFF ############################
@@ -612,8 +640,19 @@ class ClientSession:
         if self.session_state == self.SessionState.CLIENT_MENU:
             return (
                 '## Main Menu ##\n'
+                '1 Account Details\n'
                 'Q Quit'
             )
+        if self.session_state == self.SessionState.ACCOUNT_DETAILS_MENU:
+            return (
+                '## Account Details ##\n'
+                '1 View Account Details\n'
+                '2 Set email address\n'
+                '3 Change password\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+
         ######################### ADMIN STUFF ##################################
         if self.session_state == self.SessionState.ADVISOR_MENU:
             return (
