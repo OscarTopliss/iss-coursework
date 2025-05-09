@@ -211,11 +211,11 @@ class Database():
 
     def set_user_email(self, username: str, email: str):
         with Session(self.engine) as session:
-            user = session.execute(Select(self.User)\
-                .filter_by(username=username)\
-                ).scalar_one()
+            user = session.execute(
+                Select(self.User).where(self.User.username.in_([username])
+            )).scalar_one()
             user.email = server_HSM.encrypt_aes(email.encode())
-            session.flush()
+            session.commit()
 
     class AdminLog(Base):
         __tablename__ = "admin_log"
