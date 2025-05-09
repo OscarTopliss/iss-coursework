@@ -225,7 +225,7 @@ class Database():
 
     def get_all_admin_logs_string(self):
         with Session(self.engine) as session:
-            logs = session.execute(Select(AdminLog))
+            logs = session.execute(Select(self.AdminLog))
 
             table = PrettyTable(
                 [
@@ -239,12 +239,15 @@ class Database():
             )
             for log in logs.scalars():
                 table.add_row(
+                    [
                     str(log.action_id),
-                    str(log.action_type),
+                    # So that it's not prefixed with AdminAction.
+                    str(log.action_type).split(".")[1],
                     str(log.action_date),
                     str(log.action_time),
                     log.admin_username,
                     log.target_user
+                    ]
                 )
 
             return(table.get_string())
@@ -391,7 +394,7 @@ class Database():
     # it needs to be able to send data, not just status, back to the socket
     # process.
     def handle_DBRGetAllAdminLogs(self, request:DBRGetAllAdminLogs):
-        string = self.get_all_admin_logs_string
+        string = self.get_all_admin_logs_string()
         request.conn.send(string)
         request.conn.close()
 
@@ -407,6 +410,8 @@ class Database():
             self.handle_DBRCheckUserCredentials(request)
         if isinstance(request, self.DBRLogAdminLogin):
             self.handle_DBRLogAdminLogin(request)
+        if isinstance(request, self.DBRGetAllAdminLogs):
+            self.handle_DBRGetAllAdminLogs(request)
 
     # A method to populate the database with initial data.
     def populate_database(self):
