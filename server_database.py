@@ -137,12 +137,8 @@ class Database():
             )\
                 .where(self.User.username.in_([username])))
             user = user_list.all()
-
-
             password_hash = user[0][0]
             salt = user[0][1]
-
-
 
             pepper = server_HSM.get_pepper()
 
@@ -320,6 +316,49 @@ class Database():
         company_name: Mapped[str] = mapped_column(String(100), unique=True)
         share_price: Mapped[float] = mapped_column(Float)
         shares_remaining: Mapped[int] = mapped_column(BigInteger)
+
+    def get_companies_string(self) -> str:
+        table = PrettyTable(
+            [
+                "CODE",
+                "NAME",
+                "SHARE PRICE",
+                "REMAINING SHARES"
+            ]
+        )
+
+        with Session(self.engine) as session:
+            companies = session.execute(Select(self.Company))
+
+            for company in companies.scalars():
+                table.add_row(
+                    [
+                        company.company_code,
+                        company.company_name,
+                        "{:.2f}".format(company.share_price),
+                        company.shares_remaining
+                    ]
+                )
+
+        return table.get_string()
+
+    def add_company(
+        self,
+        company_code: str,
+        company_name: str,
+        share_price: float,
+        shares: int
+    ):
+        with Session(self.engine) as session:
+            company = self.Company(
+                company_code = company_code,
+                company_name = company_name,
+                share_price = share_price,
+                shares_remaining = shares
+            )
+            session.add(company)
+            session.commit()
+
 
     ## Database Request and response classes
     # used to communicate asynchronously with the database process.
@@ -537,6 +576,14 @@ class Database():
         request.conn.close()
         return
 
+    class DBRGetCompanyString(DatabaseRequest):
+        def __init__(self, process_conn : Connection):
+            super().__init__(process_conn)
+
+    def handle_DBRGetCompanyString(self, request: DBRGetCompanyString):
+        request.conn.send(self.get_companies_string())
+        request.conn.close()
+
 
     def handle_request(self, request: DatabaseRequest):
         if isinstance(request, self.DBRDoesUserExist):
@@ -566,6 +613,9 @@ class Database():
         if isinstance(request, self.DBRSetClientEmail):
             self.handle_DBRSetClientEmail(request)
             return
+        if isinstance(request, self.DBRGetCompanyString):
+            self.handle_DBRGetCompanyString(request)
+            return
 
     # A method to populate the database with initial data.
     def populate_database(self):
@@ -587,6 +637,18 @@ class Database():
                 user_type = UserType.CLIENT,
                 password = "daveiscool",
                 pepper = server_HSM.get_pepper()
+            )
+            self.add_company(
+                company_code = "WMG",
+                company_name = "Warwick Manufacturing Group",
+                share_price = 20.10,
+                shares = 100
+            )
+            self.add_company(
+                company_code = "HRJ",
+                company_name = "Harj Enterprises Inc.",
+                share_price = 120.12,
+                shares = 1000
             )
             print('Done.')
 

@@ -119,6 +119,15 @@ class ClientSession:
         VIEW_ACCOUNT_DETAILS = 20
         SET_EMAIL_ADDRESS = 21
         CHANGE_PASSWORD = 22
+        INVESTMENT_MENU = 23
+        VIEW_PORTFOLIO = 24
+        VIEW_COMPANIES = 25
+        BUY_SHARES_COMPANY_CODE = 26
+        BUY_SHARES_QUANTITY = 27
+        BUY_SHARES_SUCCESS = 28
+        SELL_SHARES_COMPANY_CODE = 29
+        SELL_SHARES_QUANTITY = 30
+        SELL_SHARES_SUCCESS = 31
 
     # Enum which contains the possible user types, including unauthenticated.
     class UserType(Enum):
@@ -561,6 +570,9 @@ class ClientSession:
             if response == "1":
                 self.session_state = self.SessionState.ACCOUNT_DETAILS_MENU
                 return True
+            if response == "2":
+                self.session_state = self.SessionState.INVESTMENT_MENU
+                return True
             self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
             return True
 
@@ -583,9 +595,8 @@ class ClientSession:
             if response == "2":
                 self.session_state = self.SessionState.SET_EMAIL_ADDRESS
                 return True
-            if response == "3":
-                self.session_state = self.SessionState.CHANGE_PASSWORD
-                return True
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
 
         if self.session_state == self.SessionState.VIEW_ACCOUNT_DETAILS:
             self.return_to_client_menu()
@@ -615,6 +626,40 @@ class ClientSession:
             process_conn.recv()
             self.return_to_client_menu()
             return True
+
+        if self.session_state == self.SessionState.INVESTMENT_MENU:
+            if response.upper() == "M":
+                self.return_to_client_menu()
+                return True
+            if response == "1":
+                self.session_state = self.SessionState.VIEW_PORTFOLIO
+                return True
+            if response == "2":
+                self.session_state = self.SessionState.VIEW_COMPANIES
+                process_conn, db_conn = Pipe()
+                request = Database.DBRGetCompanyString(
+                    process_conn = db_conn
+                )
+                self.database_queue.put(request)
+                self.request_args["company_string"] = process_conn.recv()
+                process_conn.close()
+                return True
+
+            if response == "3":
+                self.session_state = self.SessionState.BUY_SHARES_COMPANY_CODE
+                return True
+
+            if response == "4":
+                self.session_state = self.SessionState.SELL_SHARES_COMPANY_CODE
+                return True
+
+            self.error_message = self.ErrorMessage.INVALID_INPUT_GENERIC
+            return True
+
+        if self.session_state == self.SessionState.VIEW_COMPANIES:
+            self.return_to_client_menu()
+
+
 
 
 
@@ -683,6 +728,7 @@ class ClientSession:
             return (
                 '## Main Menu ##\n'
                 '1 Account Details\n'
+                '2 Investment Menu\n'
                 'Q Quit'
             )
         if self.session_state == self.SessionState.ACCOUNT_DETAILS_MENU:
@@ -690,7 +736,6 @@ class ClientSession:
                 '## Account Details ##\n'
                 '1 View Account Details\n'
                 '2 Set email address\n'
-                '3 Change password\n'
                 'M Main Menu\n'
                 'Q Quit'
             )
@@ -707,6 +752,24 @@ class ClientSession:
                 '## Set Email Address ##\n'
                 'Please enter your email address:\n'
                 'M Main menu\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.INVESTMENT_MENU:
+            return (
+                '## Investment Menu ##\n'
+                '1 View Portfolio\n'
+                '2 View Companies and share prices\n'
+                '3 Buy Shares\n'
+                '4 Sell Shares\n'
+                'M Main Menu\n'
+                'Q Quit'
+            )
+
+        if self.session_state == self.SessionState.VIEW_COMPANIES:
+            return (
+                '## Companies ##'
+                f'{self.request_args["company_string"]}\n'
+                '<Enter> Return to Main Menu\n'
                 'Q Quit'
             )
 
