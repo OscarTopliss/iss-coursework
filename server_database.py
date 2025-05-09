@@ -178,6 +178,27 @@ class Database():
             user_type = user_types_list.all()[0][0]
             return user_type
 
+    def get_user_details_string(self, username: str) -> str:
+        with Session(self.engine) as session:
+            users = session.execute(Select(self.User).where(
+                self.User.username.in_([username])
+            ))
+
+            table = PrettyTable(
+                [
+                    "USERNAME",
+                    "EMAIL",
+                ]
+            )
+            for user in users.scalars():
+                table.add_row(
+                    [
+                        user.username,
+                        user.email
+                    ]
+                )
+            return table.get_string()
+
     class AdminLog(Base):
         __tablename__ = "admin_log"
 
@@ -456,10 +477,32 @@ class Database():
             request.conn.send(RequestResponse.USER_TYPE_VALID)
         request.conn.close()
 
+    class DBRGetClientAccountDetails(DatabaseRequest):
+        def __init__(
+            self,
+            process_conn: Connection,
+            username: str
+        ):
+            super().__init__(process_conn)
+            self.username = username
+
+    def handle_DBRGetClientAccountDetails(
+        self,
+        request: DBRGetClientAccountDetails
+    ):
+        if self.get_user_type(request.username) != UserType.CLIENT:
+            request.conn.send(RequestResponse.USER_TYPE_INVALID)
+            request.conn.close()
+            return
+        request.conn.send(self.get_user_details_string(
+            request.username
+        ))
+        request.conn.close()
+
+
 
 
     def handle_request(self, request: DatabaseRequest):
-        print("REQUEST RECEIVED")
         if isinstance(request, self.DBRDoesUserExist):
             self.handle_DBRDoesUserExist(request)
             return
@@ -480,6 +523,9 @@ class Database():
             return
         if isinstance(request, self.DBRGetLogsByAdmin):
             self.handle_DBRGetLogsByAdmin(request)
+            return
+        if isinstance(request, self.DBRGetClientAccountDetails):
+            self.handle_DBRGetClientAccountDetails(request)
             return
 
     # A method to populate the database with initial data.

@@ -565,6 +565,7 @@ class ClientSession:
         ######################### CLIENT METHODS ###############################
         if self.session_state == self.SessionState.CLIENT_MENU:
             if response == "1":
+                print("should be working")
                 self.session_state = self.SessionState.ACCOUNT_DETAILS_MENU
                 return True
 
@@ -574,10 +575,28 @@ class ClientSession:
                 return True
             if response == "1":
                 self.session_state = self.SessionState.VIEW_ACCOUNT_DETAILS
+                process_conn, db_conn = Pipe()
+                request = DBRGetClientAccountDetails(
+                    process_conn = db_conn,
+                    username = self.username,
+                )
+                self.database_queue.put(request)
+                self.request_args["account_details"] = process_conn.recv()
+                process_conn.close()
+
+                return True
             if response == "2":
                 self.session_state = self.SessionState.SET_EMAIL_ADDRESS
+                return True
             if response == "3":
                 self.session_state = self.SessionState.CHANGE_PASSWORD
+                return True
+
+        if self.session_state == self.SessionState.VIEW_ACCOUNT_DETAILS:
+            self.return_to_client_menu()
+            return True
+
+
 
 
 
@@ -650,6 +669,13 @@ class ClientSession:
                 '2 Set email address\n'
                 '3 Change password\n'
                 'M Main Menu\n'
+                'Q Quit'
+            )
+        if self.session_state == self.SessionState.VIEW_ACCOUNT_DETAILS:
+            return (
+                '## View Account Details ##\n'
+                f'{self.request_args["account_details"]}\n'
+                '<Enter> Return to Main Menu\n'
                 'Q Quit'
             )
 
