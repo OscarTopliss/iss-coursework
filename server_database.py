@@ -325,8 +325,7 @@ class Database():
             [
                 "CODE",
                 "NAME",
-                "SHARE PRICE",
-                "REMAINING SHARES"
+                "SHARE PRICE"
             ]
         )
 
@@ -338,8 +337,7 @@ class Database():
                     [
                         company.company_code,
                         company.company_name,
-                        "{:.2f}".format(company.share_price),
-                        company.shares_remaining
+                        "{:.2f}".format(company.share_price)
                     ]
                 )
 

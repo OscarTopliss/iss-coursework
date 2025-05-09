@@ -659,7 +659,7 @@ class ClientSession:
                 self.return_to_client_menu()
                 return True
             socket_conn, db_conn = Pipe()
-            request = DBRCheckCompanyCodeValid(
+            request = Database.DBRCheckCompanyCodeValid(
                 process_conn = db_conn,
                 company_code = response
             )
